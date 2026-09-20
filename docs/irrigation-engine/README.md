@@ -2,6 +2,13 @@
 
 Research and design an optional soil-depletion scheduling mode and watering-window capacity planner integrated into OpenSprinkler. The proposed architecture makes OS the scheduling authority for LinkTap and RainMachine valves, with Indigo supervisory.
 
+## Scheduling design
+
+- [Scheduling specification, draft 1](SCHEDULING_SPEC.md) — agreed policies, proposed defaults and integration boundaries
+- [Offline replay plan](REPLAY_PLAN.md) — acceptance scenarios and numerical examples
+
+These are design documents; the offline simulator and firmware changes have not been implemented.
+
 ## Background and decisions
 
 - [OS, LinkTap bridge and ETo integration findings](INTEGRATION_FINDINGS.md)

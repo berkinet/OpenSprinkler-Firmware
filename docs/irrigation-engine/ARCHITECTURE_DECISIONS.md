@@ -69,4 +69,12 @@ The owner authorized creation of the project repository, documentation of this d
 
 ## Repository consolidation
 
-The owner subsequently requested one repository for code and background documentation. These documents now live under docs/irrigation-engine in the OpenSprinkler firmware fork. The upstream README is preserved. The original documentation repository is archived after migration verification. The OpenSprinkler UI remains a separate upstream project; its integration has not yet been implemented.
+The owner subsequently requested one repository for code and background documentation. These documents now live under docs/irrigation-engine in the OpenSprinkler firmware fork. The upstream README is preserved. The original documentation repository was archived after migration verification and subsequently deleted at the owner’s request. The OpenSprinkler UI remains a separate upstream project; its integration has not yet been implemented.
+
+## Subsequent scheduling decisions
+
+The owner agreed to one valve per zone, profile selection with one shared initial garden profile, separate zone depletion, hard watering restrictions, per-zone cycle-and-soak, and named ordered priority groups. Capacity skips are reported, with configurable temporary promotion for the next eligible window. Full refill remains the default; capacity-limited partial refill is calculated to keep projected depletion within threshold through the next opportunity, with unmet need/stress reported. Exact promotion size and several implementation defaults remain proposals.
+
+The owner also selected extending the existing Indigo LinkTap bridge with an RM adapter. Both command paths therefore depend on Indigo; OS owns scheduling. The bridge project's decision note is at https://github.com/berkinet/OpenSprinkler-LinkTap-Bridge/blob/main/docs/RAINMACHINE-ADAPTER-DECISION.md . This supersedes the earlier suggestion to choose a separate RM bridge host.
+
+See [SCHEDULING_SPEC.md](SCHEDULING_SPEC.md) and [REPLAY_PLAN.md](REPLAY_PLAN.md) for the consolidated design and explicit distinctions between agreements and proposed behavior.

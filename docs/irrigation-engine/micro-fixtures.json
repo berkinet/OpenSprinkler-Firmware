@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "purpose": "Synthetic hand-checkable targets; no controller execution",
+  "assumptions": ["dry horizon", "zero ET during illustrative short event", "zero transition delays", "no uncertainty reserve"],
+  "rate_mm_per_hour": 30,
+  "efficiency": 0.8,
+  "cases": [
+    {"id": "sufficient_partial", "depletion_mm": 12, "threshold_mm": 15, "projected_etc_mm": 6, "capacity_seconds": 480, "full_seconds": 1800, "minimum_seconds": 450, "allocated_seconds": 450, "end_depletion_mm": 15},
+    {"id": "insufficient_partial", "depletion_mm": 12, "threshold_mm": 15, "projected_etc_mm": 6, "capacity_seconds": 420, "minimum_seconds": 450, "allocated_seconds": 0, "end_depletion_mm": 18, "hypothetical_420_second_end_mm": 15.2},
+    {"id": "cycle_soak", "on_seconds": 300, "max_cycle_seconds": 60, "min_soak_seconds": 60, "pulses": [[0,60],[120,180],[240,300],[360,420],[480,540]], "elapsed_seconds": 540, "other_valve_pulse": [60,120]},
+    {"id": "interrupted", "depletion_mm": 12, "planned_seconds": 1800, "delivered_seconds": 600, "credited_mm": 4, "end_depletion_mm": 8},
+    {"id": "storage_infeasible", "depletion_mm": 12, "threshold_mm": 15, "projected_etc_mm": 20, "minimum_refill_mm": 17, "full_refill_mm": 12, "end_after_full_mm": 20}
+  ]
+}
