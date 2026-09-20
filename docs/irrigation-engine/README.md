@@ -4,6 +4,7 @@ Research and design an optional soil-depletion scheduling mode and watering-wind
 
 ## Background and decisions
 
+- [OS, LinkTap bridge and ETo integration findings](INTEGRATION_FINDINGS.md)
 - [Current architecture and discussion decisions](ARCHITECTURE_DECISIONS.md)
 - [Original RainMachine research handoff](DISCUSSION_HANDOFF.md)
 - [Historical development notes and source inspection](DEVELOPMENT_NOTES.md)
@@ -14,7 +15,6 @@ The historical notes originally required autonomous scheduling inside RainMachin
 ## Repositories
 
 - Project and firmware fork: https://github.com/berkinet/OpenSprinkler-Firmware
-- Previous documentation repository (archived after migration): https://github.com/berkinet/Irrigation-Engine-Replacement
 - Firmware upstream: https://github.com/OpenSprinkler/OpenSprinkler-Firmware
 - Existing LinkTap bridge: https://github.com/berkinet/OpenSprinkler-LinkTap-Bridge
 - Existing Irrigation Monitor: https://github.com/berkinet/Indigo-Irrigation-Monitor-Plugin
