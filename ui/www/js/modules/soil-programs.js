@@ -173,7 +173,7 @@ OSApp.SoilPrograms.editPage = function( sid ) {
 	fields.runtime = OSApp.SoilPrograms.durationField( runtimeBox, "soil-runtime", "Total ON time per watering", program.runtime );
 	runtimeBox.append( "<p class='small'>A completed event is assumed to refill the zone. ETo and rainfall change frequency, not this runtime. Interrupted watering is not treated as a full refill. An event that cannot fit is skipped and reported.</p>" );
 	fields.depth = OSApp.SoilPrograms.field( depthBox, "soil-depth", "Net water depth per watering (mm)", program.depth, "number" );
-	calibration.append( "<h3>Application calibration</h3>" );
+	calibration.append( "<h3>Water delivery</h3>" );
 	fields.calibrationSource = OSApp.SoilPrograms.select( calibration, "soil-calibration-source", "Calibration method", [ { value: "manual", label: "Manual entry" }, { value: "catalogue", label: "Equipment catalogue" } ], program.calibrationSource || "manual" );
 	var manualBox = $( "<div id='soil-manual-calibration'></div>" ).appendTo( calibration ), catalogBox = $( "<div id='soil-catalogue-calibration'></div>" ).appendTo( calibration );
 	fields.rate = OSApp.SoilPrograms.field( manualBox, "soil-rate", "Gross application rate (mm/hour)", program.rate, "number" );
@@ -181,7 +181,10 @@ OSApp.SoilPrograms.editPage = function( sid ) {
 	equipmentSnapshot = OSApp.EquipmentCatalog.programHelper( catalogBox, fields, program );
 	function calibrationVisibility() {
 		var manual = fields.calibrationSource.val() === "manual";
-		manualBox.toggle( manual ); catalogBox.toggle( !manual );
+		manualBox.show(); catalogBox.toggle( !manual );
+		fields.rate.add( fields.efficiency ).prop( "disabled", !manual ).each( function() {
+			if ( $( this ).data( "mobile-textinput" ) ) { $( this ).textinput( manual ? "enable" : "disable" ); }
+		} );
 	}
 	fields.calibrationSource.on( "change", calibrationVisibility ); calibrationVisibility();
 	function amountVisibility() {

@@ -156,13 +156,16 @@ OSApp.EquipmentCatalog.programHelper = function( parent, fields, program ) {
 		details.text( entry ? entry.conditions + " Source: " + entry.source : "" );
 		try { preview.text( entry ? "Estimated gross application rate: " + OSApp.EquipmentCatalog.calculate( entry, values() ).toFixed( 3 ) + " mm/hour. Efficiency: " + ( entry.efficiency === "" ? "not configured; set an estimate in Equipment catalogue maintenance, or choose Manual entry" : entry.efficiency + "% (estimate)" ) : "" ); } catch ( e ) { preview.text( e.message ); }
 	}
-	function changed() { dirty = true; update(); }
+	function changed() {
+		dirty = true; update();
+		if ( fields.calibrationSource.val() === "catalogue" ) { apply( false ); }
+	}
 	select.on( "change", changed ); box.on( "input change", "input", changed ); update();
 	var provenance = $( "<p class='small'></p>" ).appendTo( parent );
 	if ( snapshot ) {
-		try { provenance.text( "Originally estimated from " + JSON.parse( snapshot ).entry.name + ". The saved values remain unchanged until you apply an entry." ); } catch { provenance.text( "Saved equipment reference is available in the draft export." ); }
+		try { provenance.text( "Originally estimated from " + JSON.parse( snapshot ).entry.name + ". These saved specifications supply the read-only rate and efficiency." ); } catch { provenance.text( "Saved equipment reference is available in the draft export." ); }
 	}
-	$( "<button id='apply-equipment' type='button' class='ui-btn'>Apply equipment values</button>" ).appendTo( box ).on( "click", function() {
+	function apply( reportError ) {
 		var entry = chosen();
 		try {
 			if ( !entry ) { throw new Error( "Select equipment first." ); }
@@ -171,11 +174,19 @@ OSApp.EquipmentCatalog.programHelper = function( parent, fields, program ) {
 			fields.efficiency.val( entry.efficiency ).trigger( "change" );
 			snapshot = JSON.stringify( { catalogVersion: 1, entry: entry, geometry: values(), appliedRate: rate } );
 			dirty = false;
-			provenance.text( "Estimated from " + entry.name + ". Applied: " + rate.toFixed( 3 ) + " mm/hour; efficiency " + ( entry.efficiency === "" ? "not configured" : entry.efficiency + "%" ) + "." );
-		} catch ( e ) { OSApp.Errors.showError( e.message ); }
+			provenance.text( "Calculated from " + entry.name + ". Switch to Manual entry to change the rate or efficiency yourself." );
+		} catch ( e ) {
+			snapshot = undefined; dirty = true;
+			fields.rate.add( fields.efficiency ).val( "" ).trigger( "change" );
+			provenance.text( "Complete the equipment and layout selection to calculate water delivery." );
+			if ( reportError ) { OSApp.Errors.showError( e.message ); }
+		}
+	}
+	fields.calibrationSource.on( "change", function() {
+		if ( fields.calibrationSource.val() === "catalogue" ) { apply( false ); }
 	} );
 	return function() {
-		if ( !snapshot || dirty ) { throw new Error( "Apply the selected equipment values before saving, or choose Manual entry." ); }
+		if ( !snapshot || dirty ) { throw new Error( "Select equipment and complete its layout before saving, or choose Manual entry." ); }
 		var applied = JSON.parse( snapshot );
 		if ( Number( fields.rate.val() ) !== applied.appliedRate || String( fields.efficiency.val() ) !== String( applied.entry.efficiency ) ) {
 			throw new Error( "Apply the equipment values to use catalogue calibration, or choose Manual entry to keep your custom values." );

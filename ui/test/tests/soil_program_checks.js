@@ -256,13 +256,13 @@ describe("Soil-water program drafts", function () {
 		assert.include($("#addprogram").text(), "Elapsed: 9 min");
 		assert.isFalse(OSApp.Firmware.sendToOS.called);
 	});
-	it("previews catalogue geometry and only applies it explicitly", function () {
+	it("fills catalogue values on selection and preserves copied specifications", function () {
 		OSApp.SoilPrograms.editPage();
 		$("#soil-amount-mode").val("depth").trigger("change");
 		$("#equipment-choice").val("jardibric-a1480").trigger("change");
 		$("#equipment-rows").val(.5).trigger("input");
 		assert.equal($("#soil-rate").val(), "");
-		$("#apply-equipment").trigger("click");
+		$("#soil-calibration-source").val("catalogue").trigger("change");
 		assert.closeTo(Number($("#soil-rate").val()), 12.121212, .00001);
 		assert.equal($("#soil-efficiency").val(), "");
 		$("#soil-calibration-source").val("catalogue").trigger("change"); $("#soil-depth").val(6);
@@ -324,28 +324,36 @@ describe("Soil-water program drafts", function () {
 		assert.lengthOf($("#equipment-catalog img"), 0);
 	});
 
-	it("shows manual calibration or catalogue controls exclusively and preserves the saved choice", function () {
-		OSApp.SoilPrograms.editPage();
-		$("#soil-amount-mode").val("depth").trigger("change");
+	it("automatically fills disabled catalogue fields in legacy mode and preserves the saved choice", function () {
+		var data = OSApp.SoilPrograms.load();
+		data.programs = [{sid:0,name:"Legacy",profile:"garden",group:"Normal",enabled:true,rate:10,efficiency:85,cycle:1,soak:1,minimum:1}];
+		OSApp.SoilPrograms.save(data);
+		OSApp.SoilPrograms.editPage(0);
+		assert.equal($("#soil-amount-mode").val(), "legacy");
 		assert.notEqual($("#soil-manual-calibration").css("display"), "none");
 		assert.equal($("#soil-catalogue-calibration").css("display"), "none");
 		$("#soil-calibration-source").val("catalogue").trigger("change");
-		assert.equal($("#soil-manual-calibration").css("display"), "none");
+		assert.isTrue($("#soil-rate").prop("disabled"));
+		assert.isTrue($("#soil-efficiency").prop("disabled"));
 		assert.notEqual($("#soil-catalogue-calibration").css("display"), "none");
 		$("#equipment-choice").val("jardibric-a1480").trigger("change");
 		$("#equipment-rows").val(.5).trigger("input");
 		assert.include($("#equipment-rows").closest(".ui-field-contain").find("button").attr("title"), "raspberries");
 		header.rightBtn.on();
-		assert.include(OSApp.Errors.showError.lastCall.args[0], "Apply");
-		$("#apply-equipment").trigger("click"); header.rightBtn.on();
+		assert.closeTo(Number($("#soil-rate").val()), 12.121212, .00001);
 		OSApp.SoilPrograms.editPage(0);
 		assert.equal($("#soil-calibration-source").val(), "catalogue");
 		assert.equal($("#equipment-rows").val(), "0.5");
-		assert.equal($("#soil-manual-calibration").css("display"), "none");
+		assert.isTrue($("#soil-rate").prop("disabled"));
+		assert.isTrue($("#soil-efficiency").prop("disabled"));
 		$("#equipment-rows").val(1).trigger("input");
+		assert.closeTo(Number($("#soil-rate").val()), 6.060606, .00001);
+		$("#equipment-rows").val(0).trigger("input");
+		assert.equal($("#soil-rate").val(), "");
 		header.rightBtn.on();
-		assert.include(OSApp.Errors.showError.lastCall.args[0], "Apply");
+		assert.include(OSApp.Errors.showError.lastCall.args[0], "layout");
 		$("#soil-calibration-source").val("manual").trigger("change");
+		assert.isFalse($("#soil-rate").prop("disabled"));
 		$("#soil-rate").val(10); $("#soil-efficiency").val(85); header.rightBtn.on();
 		assert.equal(OSApp.SoilPrograms.load().programs[0].calibrationSource, "manual");
 		assert.notProperty(OSApp.SoilPrograms.load().programs[0], "equipment");

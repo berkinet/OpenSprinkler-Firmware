@@ -331,3 +331,15 @@ this from dripper spacing and the visible wetted footprint. The field label is
 “Hose spacing / single-row width (metres).” Validation: 407 browser tests and 64
 offline engine tests pass, including save/reopen, changed-layout apply checks,
 exclusive controls and the shared exported fixture.
+
+### Catalogue read-only display refinement
+
+Owner clarification: keep the calculated rate and efficiency visible but grayed
+out in catalogue mode, auto-filling them when equipment or geometry changes.
+Manual entry enables these two fields and hides catalogue controls. This applies
+to legacy deficit-based programs as well as fixed depth. The enclosing section
+is now named Water delivery. There is no separate Apply action. Invalid or
+incomplete catalogue geometry clears the calculated values and blocks saving
+that selection rather than retaining stale numbers; missing efficiency remains
+explicitly unconfigured. Saved snapshots still protect programs from unrelated
+catalogue maintenance edits.
