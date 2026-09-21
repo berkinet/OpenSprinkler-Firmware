@@ -306,3 +306,10 @@ Initial examples include Jardibric Aqua Gout’ A1480, Netafim UNITECHLINE 16,
 Rain Bird XFD, Hunter PLD-22 and Claber 91249, with the exact variant/conditions
 shown. No application efficiency is prescribed for these products. Ordinary
 Gardena supply tubing is not an emitter and therefore has no rate preset.
+
+Deployed to the dedicated test Pi on 21 September 2026. The existing UI assets
+were backed up in `irrigation-build-records/scheduling-ui` before replacement.
+All 64 offline tests also passed on the Pi. Installed-page inspection confirmed
+runtime/depth selection and catalogue maintenance. Non-ASCII catalogue strings
+use JavaScript Unicode escapes because the firmware bootstrap otherwise decodes
+literal UTF-8 incorrectly. No firmware restart or valve command was needed.

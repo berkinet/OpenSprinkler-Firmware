@@ -12,11 +12,11 @@ OSApp.EquipmentCatalog.types = [
 // Product examples only: no efficiency or installation layout is prescribed.
 OSApp.EquipmentCatalog.defaults = function() {
 	return { version: 1, entries: [
-		{ id: "jardibric-a1480", name: "Jardibric Aqua Gout’ A1480", type: "dripline", flow: 2, spacing: 0.33, efficiency: "", conditions: "2 L/hour per emitter at 1 bar; 33 cm emitter spacing. Match the installed product.", source: "https://jardibric.com/wp-content/uploads/2021/06/Catalogue_JARDIBRIC_2023_EN_GENERAL.pdf#page=46" },
-		{ id: "netafim-unitechline16-30", name: "Netafim UNITECHLINE 16 — 1.6 L/h, 30 cm", type: "dripline", flow: 1.6, spacing: 0.3, efficiency: "", conditions: "0.5–4 bar; this entry is the 30 cm variant. Buried turf product.", source: "https://www.netafim.fr/contentassets/522e1449f2b643b1889cbe1e3093d65b/irrig-enterre-pj.pdf" },
-		{ id: "rainbird-xfd-23-305", name: "Rain Bird XFD — 2.3 L/h, 30.5 cm", type: "dripline", flow: 2.3, spacing: 0.305, efficiency: "", conditions: "0.58–4.1 bar. Match the 30.5 cm variant; other regional spacings exist.", source: "https://www.rainbird.com/fr/products/goutteur-en-ligne-de-surface-xfd" },
-		{ id: "hunter-pld22-30", name: "Hunter PLD-22 — 2.2 L/h, 30 cm", type: "dripline", flow: 2.2, spacing: 0.3, efficiency: "", conditions: "PLD 16 mm, 30 cm variant. Verify operating limits and installed model against the datasheet.", source: "https://www.hunterirrigation.com/sites/default/files/CA-Cutsheet-PLD-FR.pdf" },
-		{ id: "claber-91249", name: "Claber 91249 — at 1.5 bar", type: "emitter", flow: 46, spacing: "", efficiency: "", conditions: "46 L/hour at 1.5 bar; adjustable sprinkler. Verify its setting and actual coverage.", source: "https://www.claber.com/fr/prodotti/scheda/91249/Micro-asperseur-360-reglable" }
+		{ id: "jardibric-a1480", name: "Jardibric Aqua Gout\u2019 A1480", type: "dripline", flow: 2, spacing: 0.33, efficiency: "", conditions: "2 L/hour per emitter at 1 bar; 33 cm emitter spacing. Match the installed product.", source: "https://jardibric.com/wp-content/uploads/2021/06/Catalogue_JARDIBRIC_2023_EN_GENERAL.pdf#page=46" },
+		{ id: "netafim-unitechline16-30", name: "Netafim UNITECHLINE 16 \u2014 1.6 L/h, 30 cm", type: "dripline", flow: 1.6, spacing: 0.3, efficiency: "", conditions: "0.5\u20134 bar; this entry is the 30 cm variant. Buried turf product.", source: "https://www.netafim.fr/contentassets/522e1449f2b643b1889cbe1e3093d65b/irrig-enterre-pj.pdf" },
+		{ id: "rainbird-xfd-23-305", name: "Rain Bird XFD \u2014 2.3 L/h, 30.5 cm", type: "dripline", flow: 2.3, spacing: 0.305, efficiency: "", conditions: "0.58\u20134.1 bar. Match the 30.5 cm variant; other regional spacings exist.", source: "https://www.rainbird.com/fr/products/goutteur-en-ligne-de-surface-xfd" },
+		{ id: "hunter-pld22-30", name: "Hunter PLD-22 \u2014 2.2 L/h, 30 cm", type: "dripline", flow: 2.2, spacing: 0.3, efficiency: "", conditions: "PLD 16 mm, 30 cm variant. Verify operating limits and installed model against the datasheet.", source: "https://www.hunterirrigation.com/sites/default/files/CA-Cutsheet-PLD-FR.pdf" },
+		{ id: "claber-91249", name: "Claber 91249 \u2014 at 1.5 bar", type: "emitter", flow: 46, spacing: "", efficiency: "", conditions: "46 L/hour at 1.5 bar; adjustable sprinkler. Verify its setting and actual coverage.", source: "https://www.claber.com/fr/prodotti/scheda/91249/Micro-asperseur-360-reglable" }
 	] };
 };
 OSApp.EquipmentCatalog.validate = function( data ) {
@@ -84,7 +84,7 @@ OSApp.EquipmentCatalog.displayPage = function() {
 		fields.type = OSApp.SoilPrograms.select( editor, "catalog-type", "Type", OSApp.EquipmentCatalog.types, e.type );
 		fields.flow = OSApp.SoilPrograms.field( editor, "catalog-flow", "Flow / application rate (units above)", e.flow, "number" );
 		fields.spacing = OSApp.SoilPrograms.field( editor, "catalog-spacing", "Emitter spacing (metres, dripline only)", e.spacing, "number" );
-		fields.efficiency = OSApp.SoilPrograms.field( editor, "catalog-efficiency", "Estimated efficiency (%) — optional", e.efficiency, "number" );
+		fields.efficiency = OSApp.SoilPrograms.field( editor, "catalog-efficiency", "Estimated efficiency (%) \u2014 optional", e.efficiency, "number" );
 		fields.conditions = OSApp.SoilPrograms.field( editor, "catalog-conditions", "Pressure, settings and other assumptions", e.conditions );
 		fields.source = OSApp.SoilPrograms.field( editor, "catalog-source", "Source / reference", e.source );
 		function visibility() { fields.spacing.closest( ".ui-field-contain" ).toggle( fields.type.val() === "dripline" ); }
@@ -115,7 +115,7 @@ OSApp.EquipmentCatalog.displayPage = function() {
 	$( "<button id='import-catalog' class='ui-btn'>Import catalogue</button>" ).appendTo( body ).on( "click", function() {
 		var next;
 		try { next = OSApp.EquipmentCatalog.validate( JSON.parse( backup.val() ) ); } catch ( e ) { OSApp.Errors.showError( e.message ); return; }
-		OSApp.UIDom.areYouSure( "Replace this browser’s equipment catalogue?", "Existing programs keep their copied settings.", function() { if ( persist( next ) ) { editor.empty(); render(); } } );
+		OSApp.UIDom.areYouSure( "Replace this browser\u2019s equipment catalogue?", "Existing programs keep their copied settings.", function() { if ( persist( next ) ) { editor.empty(); render(); } } );
 	} );
 };
 OSApp.EquipmentCatalog.programHelper = function( parent, fields, program ) {
@@ -124,7 +124,7 @@ OSApp.EquipmentCatalog.programHelper = function( parent, fields, program ) {
 	var snapshot = program.equipment, box = $( "<fieldset data-role='collapsible'><legend>Use equipment catalogue</legend></fieldset>" ).appendTo( parent );
 	var select = OSApp.SoilPrograms.select( box, "equipment-choice", "Equipment", [ { value: "", label: "Select equipment" } ].concat( entries.map( function( e ) { return { value: e.id, label: e.name }; } ) ), "" );
 	var details = $( "<p></p>" ).appendTo( box ), geometry = {};
-	[ [ "rows", "Spacing between runs (metres)" ], [ "count", "Number of emitters" ], [ "length", "Hose length (metres)" ], [ "area", "Represented planting area (m²)" ] ].forEach( function( pair ) {
+	[ [ "rows", "Spacing between runs (metres)" ], [ "count", "Number of emitters" ], [ "length", "Hose length (metres)" ], [ "area", "Represented planting area (m\u00b2)" ] ].forEach( function( pair ) {
 		geometry[ pair[ 0 ] ] = OSApp.SoilPrograms.field( box, "equipment-" + pair[ 0 ], pair[ 1 ], "", "number" );
 	} );
 	var preview = $( "<p aria-live='polite'></p>" ).appendTo( box );
