@@ -90,7 +90,7 @@ class EngineContractTests(unittest.TestCase):
         bad = []
         for key,value in [('profile','unknown'),('group','Unknown'),('sid',1),('new_setting',5)]:
             d=copy.deepcopy(self.draft); d['programs'][0][key]=value; bad.append(d)
-        d=copy.deepcopy(self.draft); d['version']=2; bad.append(d)
+        d=copy.deepcopy(self.draft); d['version']=99; bad.append(d)
         d=copy.deepcopy(self.draft); d['groups']=['High',' high ']; bad.append(d)
         for draft in bad:
             with self.assertRaises(InputErrors):

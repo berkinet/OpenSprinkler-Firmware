@@ -166,6 +166,8 @@ OSApp.UIDom.launchApp = function() {
 			} else {
 				OSApp.Programs.addProgram( data.options.copyID );
 			}
+		} else if ( hash === "#equipment-catalog" ) {
+			OSApp.EquipmentCatalog.displayPage();
 		} else if ( hash === "#priority-groups" ) {
 			OSApp.PriorityGroups.displayPage();
 		} else if ( hash === "#soil-settings" ) {

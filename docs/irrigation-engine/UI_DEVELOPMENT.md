@@ -275,3 +275,34 @@ and rainfall factors, matching the model's permitted range. See
 [ENGINE_INTEGRATION.md](ENGINE_INTEGRATION.md) for the configuration contract,
 runtime inputs, reproducible example and validation. Controller persistence
 and automatic new-engine execution remain unconnected.
+
+## Fixed watering amounts and equipment catalogue (v2 drafts)
+
+New programs default to **Minutes per watering (assumed refill)**. Set Total ON
+time per watering using the same duration picker as cycle and soak. Five minutes
+with one-minute cycles and one-minute soak gives five pulses over nine minutes.
+Weather decides whether an event is due; it never scales those five minutes.
+An incomplete draft can still be saved, but the offline compiler blocks missing
+runtime or shared profile values. No completed event is inferred from a plan.
+
+**Water depth per watering** accepts a fixed net depth, gross application rate
+and efficiency. The catalogue helper previews a calculated gross rate using
+emitter spacing and row spacing, emitter count/area, hose length/area, or a direct
+mm/hour rating. Apply equipment values explicitly copies the rate and optional
+estimated efficiency. A blank catalogue efficiency clears the form's efficiency
+so an unrelated previous estimate is not silently reused. Both numeric fields
+remain editable. Existing v1 programs display a legacy choice until explicitly
+converted; saving an editor uses draft version 2, with the same storage key.
+
+Edit Options → Scheduling → **Equipment catalogue** appears when Soil water
+balance is saved as the active mode. Add/edit/delete entries, including source,
+pressure/settings, optional efficiency and emitter spacing. A JSON export/import
+supports backups and transfer. Storage is shared across controllers in this
+browser, separate from controller-scoped programs. Imports replace the catalogue
+after confirmation; stale saves are rejected. Existing program snapshots survive
+catalogue edits and deletion. No catalogue data is sent to a controller.
+
+Initial examples include Jardibric Aqua Gout’ A1480, Netafim UNITECHLINE 16,
+Rain Bird XFD, Hunter PLD-22 and Claber 91249, with the exact variant/conditions
+shown. No application efficiency is prescribed for these products. Ordinary
+Gardena supply tubing is not an emitter and therefore has no rate preset.

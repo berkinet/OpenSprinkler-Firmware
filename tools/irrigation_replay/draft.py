@@ -1,4 +1,4 @@
-"""Compile the real browser v1 draft into the offline engine's configuration.
+"""Compile browser v1/v2 drafts into the offline engine's configuration.
 
 No controller reads, defaults for missing calibration, or runtime state writes.
 Paths in errors refer to exported form fields so configuration gaps are visible.
@@ -105,7 +105,7 @@ def compile_draft(draft):
     v.get('draft', lambda: shape(draft, ('version', 'programs', 'groups', 'windows',
                                         'excluded', 'shortage', 'profile')))
     v.finish()
-    if type(draft.get('version')) is not int or draft['version'] != 1:
+    if type(draft.get('version')) is not int or draft['version'] not in (1, 2):
         raise InputErrors([dict(path='version', message='unsupported draft version')])
     groups = draft.get('groups')
     def group_names():
@@ -157,7 +157,8 @@ def compile_draft(draft):
     for i, p in enumerate(programs):
         path = f'programs[{i}]'
         if v.get(path, lambda: shape(p, ('sid', 'name', 'profile', 'group', 'enabled',
-                                        'rate', 'efficiency', 'cycle', 'soak', 'minimum'))) is None:
+                                        'rate', 'efficiency', 'cycle', 'soak', 'minimum',
+                                        *(() if draft['version'] == 1 else ('amountMode', 'runtime', 'depth', 'equipment'))))) is None:
             continue
         sid = v.get(path+'.sid', lambda: integer(p.get('sid')))
         name = v.get(path+'.name', lambda: text(p.get('name')))
@@ -175,16 +176,25 @@ def compile_draft(draft):
         if not p['enabled']:
             disabled.append(dict(sid=sid, name=name, reason='disabled'))
             continue
-        rate = v.get(path+'.rate', lambda: quantity(p.get('rate')))
-        efficiency = v.get(path+'.efficiency', lambda: quantity(p.get('efficiency'), maximum=100))
+        mode = p.get('amountMode', 'legacy')
+        if mode not in ('legacy', 'depth', 'runtime'):
+            v.issues.append(dict(path=path+'.amountMode', message='unknown watering amount mode'))
+        runtime = v.get(path+'.runtime', lambda: seconds(p.get('runtime'))) if mode == 'runtime' else 0
+        depth = v.get(path+'.depth', lambda: quantity(p.get('depth'))) if mode == 'depth' else 0
+        rate = 0 if mode == 'runtime' else v.get(path+'.rate', lambda: quantity(p.get('rate')))
+        efficiency = 100 if mode == 'runtime' else v.get(path+'.efficiency', lambda: quantity(p.get('efficiency'), maximum=100))
+        # Equipment is provenance only. Numeric program values remain authoritative.
+        if 'equipment' in p:
+            v.get(path+'.equipment', lambda: text(p['equipment']))
         cycle = v.get(path+'.cycle', lambda: seconds(p.get('cycle')))
         soak = v.get(path+'.soak', lambda: seconds(p.get('soak'), zero=True))
         minimum = v.get(path+'.minimum', lambda: seconds(p.get('minimum')))
         if minimum is not None and cycle is not None and minimum > cycle:
             v.issues.append(dict(path=path+'.minimum', message='minimum pulse exceeds cycle'))
-        if all(x is not None for x in (sid, name, rate, efficiency, cycle, soak, minimum)) and minimum <= cycle:
+        if all(x is not None for x in (sid, name, rate, efficiency, cycle, soak, minimum, runtime, depth)) and minimum <= cycle:
             zone = v.get(path, lambda: Zone(f'sid:{sid}', sid+1, 'garden', p.get('group'),
-                                           rate, efficiency/100, cycle, soak, minimum))
+                                           rate, efficiency/100, cycle, soak, minimum,
+                                           watering_mode=mode, runtime_seconds=runtime, event_depth_mm=depth))
             if zone is not None:
                 zones.append(zone)
                 names[zone.id] = name
@@ -197,6 +207,9 @@ def compile_draft(draft):
         if all(n is not None for n in values.values()):
             profiles['garden'] = Profile('garden', values['capacity'], values['roots'],
                 values['depletion']/100, values['crop'], values['rain']/100)
+    for zone in zones:
+        if zone.watering_mode == 'depth' and 'garden' in profiles and zone.event_depth_mm > profiles['garden'].capacity:
+            v.issues.append(dict(path='programs', message='event depth exceeds soil reservoir capacity'))
     v.finish()
     return DraftConfig(profiles, tuple(zones), names, tuple(disabled), ordered,
                        tuple(rules), excluded, policy)

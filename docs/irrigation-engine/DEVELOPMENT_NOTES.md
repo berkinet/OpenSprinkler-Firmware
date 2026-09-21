@@ -168,3 +168,20 @@ Preserve RainMachine's weather acquisition, autonomous operation and established
 2. A capacity-aware planner fits needed runs, cycle/soak and valve delays into the allowed window; safely defers eligible zones while retaining deficit, and reports infeasible demand instead of silently extending the window or starving plants.
 
 Frequency adjustment alone cannot guarantee that all zones fit on a high-demand day. The main deeper work is reconciling a physical per-zone balance across multiple programs and actual/manual/partial watering, preserving restriction and manual-control semantics, and defining what happens when required watering exceeds capacity. Prototype/replay this offline before any controller change. Copying controller source/data still requires the owner's separate go-ahead.
+
+## 2026-09-21 — Fixed-event watering and equipment catalogue
+
+Implemented the owner's fixed amount / weather-dependent frequency decision in
+the editor and offline reference engine. Runtime events use explicit completed
+refill assumptions without invented emitter rates. Fixed net-depth events use
+rate and efficiency once. Legacy drafts retain their prior behavior until edited
+and converted. Added catalogue CRUD, sources/conditions, geometry preview,
+explicit application, snapshot provenance and JSON backup/import.
+
+Validation: 64 Python tests and 406 headless browser tests passed; changed UI
+modules passed ESLint, and UI packaging succeeded. Tests cover weather-independent
+full runtime, cycle/soak and no-fit skips, completion/revision ledger semantics,
+legacy compatibility, catalogue edits/deletion/import/stale saves and unchanged
+program snapshots. One shared v2 fixture is reproduced by the browser form test
+and consumed by the Python engine test. No live weather/sensor ingestion,
+controller-side persistence or soil-water automatic dispatch is added.

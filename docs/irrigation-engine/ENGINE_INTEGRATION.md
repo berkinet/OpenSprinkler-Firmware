@@ -135,3 +135,44 @@ then review the numerical policy before translating the core into firmware
 C++ and connecting persistent configuration and execution. Future pulse plans
 must stay outside the finite legacy runtime queue until dispatch; never feed
 this conditional dry-run report directly to valve commands.
+
+## Fixed-event draft extension (version 2)
+
+The compiler accepts existing v1 and new v2 exports. Additional program fields:
+
+| Field | Meaning |
+| --- | --- |
+| `amountMode` | `runtime`, `depth`, or `legacy` (also the default for unconverted programs). |
+| `runtime` | Fixed full-event ON minutes, resolving to whole seconds; required in runtime mode. |
+| `depth` | Fixed net event mm; required in depth mode and bounded by the shared soil reservoir. |
+| `equipment` | Optional text containing the copied catalogue entry/layout provenance. It is never used in place of the explicit numeric calibration. |
+
+Runtime mode does not require `rate` or `efficiency`. It still requires a valid
+profile and reconciled depletion/weather inputs. The planner retains the same
+due test, legal windows, priority order and cycle/soak constraints. It allocates
+the whole configured runtime or reports a skip. Its conditional projection
+assumes zero depletion at the final pulse's end; it reports no physical delivered
+mm (`allocated_mm` and `full_refill_mm` are null). Projection stress remains
+visible if even an assumed refill cannot cover the next-service horizon.
+
+Depth mode converts the fixed net event depth to whole ON seconds, without
+weather-percentage scaling. It retains the existing capacity-shortfall partial
+policy. Excess over the current modeled deficit is reported as drainage; the
+full event is not shortened merely because today's deficit differs. Legacy v1
+refills continue to use current depletion, preserving historical replay results.
+
+The offline ledger accepts `completed_refill_seconds` only for runtime zones,
+with an amount exactly equal to the configured complete event duration. This
+observation is an explicit delivery assertion at event completion, not a start
+acknowledgement or a per-pulse report. One stable observation ID represents the
+whole event; a newer revision can replace uncertain/partial delivery with
+verified completion, or withdraw an erroneous completion. Partial/manual
+`delivered_seconds` in runtime mode cannot establish depth and therefore marks
+the event unresolved without resetting depletion. Retry and checkpoint/restore
+semantics remain idempotent. Future dispatch integration must reconcile every
+pulse before emitting a completion assertion; no live adapter does so yet.
+
+`fixtures/fixed-events-draft.json` is reproduced exactly by the browser form contract test
+and consumed by Python tests. Run it with the existing editor-runtime fixture to
+compare a full five-minute runtime event with a capacity-limited calibrated
+water-depth event. These are synthetic offline examples, not garden calibration.

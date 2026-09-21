@@ -118,3 +118,25 @@ See [APPLICATION_PRESETS.md](APPLICATION_PRESETS.md) for inspected sources,
 proposed categories and the distinction between product flow, installed layout,
 efficiency estimates and measured calibration. Preset values and UI details
 remain proposals; this note does not change any zone's settings.
+
+## Fixed event amounts and catalogue maintenance
+
+Owner agreement: weather changes frequency; the chosen full-event watering
+amount stays constant. Offer minutes per watering with an explicit assumed
+refill after verified completion, or a fixed net depth converted through gross
+application rate and efficiency. Runtime mode requires the common soil profile
+for ETo/depletion tracking but no equipment flow calibration. Sensors may later
+reconcile depletion; this increment does not add sensor ingestion.
+
+Implemented in the editor and offline engine: v2 programs select `runtime` or
+`depth`. Existing v1 and unconverted programs retain explicitly labelled legacy
+behavior rather than silently acquiring new calibration. Runtime mode requires
+a complete event to fit; capacity-limited partial depth events remain available
+where their calculated delivery satisfies the existing horizon rules.
+
+The owner also requested catalogue maintenance. The browser-local catalogue
+supports add/edit/delete and JSON backup/import. Application copies product
+ratings and layout provenance into a program; later catalogue changes cannot
+silently alter saved program values. Seed entries are source-labelled examples,
+not identified installed hardware or measured efficiency. Controller storage
+and automatic dispatch remain future integration work.

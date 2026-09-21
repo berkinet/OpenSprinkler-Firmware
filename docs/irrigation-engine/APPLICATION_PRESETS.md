@@ -7,6 +7,12 @@ spot mini-sprinklers, perforated lines and drip/soaker hose. Exact products are
 not yet identified. This document records sources and a proposed UI/data design;
 it does not install presets or select calibration for any valve.
 
+Implementation update: the equipment helper and browser-local catalogue
+maintenance are now implemented. See [UI_DEVELOPMENT.md](UI_DEVELOPMENT.md#fixed-watering-amounts-and-equipment-catalogue-v2-drafts)
+for controls/storage and [ENGINE_INTEGRATION.md](ENGINE_INTEGRATION.md#fixed-event-draft-extension-version-2)
+for fixed-runtime and fixed-depth semantics. The research and proposed efficiency
+values below are retained as background; no efficiency defaults were installed.
+
 ## Sources inspected
 
 | Source | Relevant evidence | Scope |

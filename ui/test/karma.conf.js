@@ -8,7 +8,7 @@ module.exports = function (config) {
 		frameworks: ['mocha', 'chai'],
 		basePath: '../',
 		// One fixture exercises actual form output and the Python engine contract.
-		client: { engineDraftFixture: require('../../tools/irrigation_replay/fixtures/editor-draft.json') },
+		client: { engineDraftFixture: require('../../tools/irrigation_replay/fixtures/fixed-events-draft.json') },
 		files: [
 			// The file order below is important to prevent undefined errors during testing!
 			// Load dependencies

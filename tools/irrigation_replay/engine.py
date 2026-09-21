@@ -118,7 +118,9 @@ def dry_run(draft, runtime):
             'uniform ETo within each supplied period', 'no forecast rain credit',
             'caller-supplied next service times; future capacity is not verified',
             'depletion snapshot is already reconciled through as_of',
-            'plans are not delivered water; no ledger or promotion state is changed'],
+            'plans are not delivered water; no ledger or promotion state is changed',
+            'runtime-mode full events assume refill only upon verified complete delivery',
+            'fixed full-event amounts are never multiplied by weather demand'],
         legal_windows=[dict(start=a, end=b) for a, b in intervals])
     if not config.zones:
         return dict(result, status='no_enabled_programs', decisions=[])

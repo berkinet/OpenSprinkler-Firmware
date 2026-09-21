@@ -125,7 +125,7 @@ def project(depletion, profile, zone, periods, pulses):
     for start, end in zip(points, points[1:]):
         et_rate = sum((number(p.eto_mm)*number(profile.crop_coefficient)/(p.end-p.start)
                        for p in periods if p.start <= start < p.end), Fraction(0))
-        water_rate = sum((zone.net_rate for p in pulses if p.start <= start < p.end), Fraction(0))
+        water_rate = sum(((zone.net_rate if zone.watering_mode != "runtime" else Fraction(0)) for p in pulses if p.start <= start < p.end), Fraction(0))
         slope = et_rate-water_rate
         delta = slope*(end-start)
         raw_end = d+delta
@@ -140,8 +140,12 @@ def project(depletion, profile, zone, periods, pulses):
             stress_seconds += max(0, min(Fraction(end-start),
                                           (d-profile.threshold)/(-slope)))
         drainage += max(0, -raw_end)
+        peak = max(peak, next_d)
         d = next_d
-        peak = max(peak, d)
+        if zone.watering_mode == 'runtime' and pulses and end == max(p.end for p in pulses):
+            # Conditional projection only: the ledger requires separate evidence
+            # that every pulse of the configured full event completed.
+            d = Fraction(0)
     return dict(end_depletion_mm=float(d), peak_depletion_mm=float(peak),
                 stress_seconds=float(stress_seconds), drainage_mm=float(drainage))
 
@@ -197,10 +201,16 @@ def plan(window, zones, profiles, groups, states, projections, horizons,
     decisions = []
     for rank, _, _, _, zone, profile, d, total, error in sorted(candidates):
         minimum = max(Fraction(0), d+total-profile.threshold)
-        full_seconds = floor(d/zone.net_rate)
-        min_seconds = max(zone.minimum_pulse_seconds, ceil(minimum/zone.net_rate))
+        if zone.watering_mode == 'runtime':
+            full_seconds = min_seconds = zone.runtime_seconds
+        else:
+            depth = number(zone.event_depth_mm) if zone.watering_mode == 'depth' else d
+            full_seconds = floor(depth/zone.net_rate)
+            min_seconds = max(zone.minimum_pulse_seconds, ceil(minimum/zone.net_rate))
         record = dict(zone_id=zone.id, configured_group=zone.group_id,
-                      effective_group=groups[rank], full_refill_mm=float(d),
+                      effective_group=groups[rank], watering_mode=zone.watering_mode,
+                      delivery_basis='assumed_refill' if zone.watering_mode == 'runtime' else 'rate_and_efficiency',
+                      full_refill_mm=None if zone.watering_mode == "runtime" else float(depth),
                       minimum_refill_mm=None if error else float(minimum), full_seconds=full_seconds,
                       minimum_seconds=None if error else min_seconds, allocated_seconds=0, allocated_mm=0.0,
                       status='skipped', reason='', pulses=[], promotion_eligible=False,
@@ -215,7 +225,7 @@ def plan(window, zones, profiles, groups, states, projections, horizons,
             reason = error
         elif d+total < profile.threshold:
             reason = 'not_due'
-        elif minimum > d:
+        elif zone.watering_mode != 'runtime' and minimum > (number(zone.event_depth_mm) if zone.watering_mode == 'depth' else d):
             reason = 'storage_horizon_infeasible'
         elif full_seconds < zone.minimum_pulse_seconds or min_seconds > full_seconds:
             reason = 'runtime_resolution_or_minimum_pulse'
@@ -223,7 +233,7 @@ def plan(window, zones, profiles, groups, states, projections, horizons,
             base = project(d, profile, zone, projections[zone.id], [])
             record['projection'] = base
             attempts = [('full', full_seconds)]
-            if min_seconds < full_seconds:
+            if zone.watering_mode != 'runtime' and min_seconds < full_seconds:
                 attempts.append(('partial', min_seconds))
             had_fit = False
             for status, seconds in attempts:
@@ -237,11 +247,11 @@ def plan(window, zones, profiles, groups, states, projections, horizons,
                 # can treat an already stressed zone but must report that stress.
                 if status == 'partial' and projection['peak_depletion_mm'] > float(profile.threshold)+1e-9:
                     continue
-                if projection['drainage_mm'] > 1e-9:
+                if zone.watering_mode == 'legacy' and projection['drainage_mm'] > 1e-9:
                     continue
                 reservations.extend(pulses)
                 record.update(status=status, reason='allocated', allocated_seconds=seconds,
-                              allocated_mm=float(seconds*zone.net_rate), pulses=pulses,
+                              allocated_mm=None if zone.watering_mode == "runtime" else float(seconds*zone.net_rate), pulses=pulses,
                               projection=projection, promotion_eligible=(status == 'partial'))
                 break
             else:

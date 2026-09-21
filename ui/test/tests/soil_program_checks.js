@@ -21,7 +21,7 @@ describe("Soil-water program drafts", function () {
 		sandbox.stub(OSApp.Firmware, "sendToOS");
 	});
 	afterEach(function () {
-		$("#programs, #addprogram, #soil-settings, #priority-groups, #preview, #soil-draft-export").remove();
+		$("#programs, #addprogram, #soil-settings, #priority-groups, #preview, #soil-draft-export, #equipment-catalog").remove();
 		OSApp.currentSession.controller = oldController;
 		OSApp.currentSession.ip = oldIP;
 		sandbox.restore();
@@ -190,7 +190,7 @@ describe("Soil-water program drafts", function () {
 		assert.include(OSApp.SoilPrograms.pulseSummary(5, 10, 1), "Elapsed: 5 min");
 	});
 	it("produces the exact draft fixture consumed by the offline scheduling engine", function () {
-		var expected = window.__karma__.config.engineDraftFixture;
+		var expected = JSON.parse(JSON.stringify(window.__karma__.config.engineDraftFixture));
 		var initial = OSApp.SoilPrograms.load(); initial.groups = expected.groups.slice();
 		OSApp.SoilPrograms.save(initial);
 		OSApp.SoilPrograms.settingsPage();
@@ -206,8 +206,9 @@ describe("Soil-water program drafts", function () {
 			OSApp.SoilPrograms.editPage();
 			$("#soil-zone").val(p.sid); $("#soil-name").val(p.name); $("#soil-group").val(p.group);
 			$("#soil-enabled").prop("checked", p.enabled);
+			$("#soil-amount-mode").val(p.amountMode).trigger("change"); $("#soil-depth").val(p.depth);
 			["rate", "efficiency"].forEach(key => $("#soil-"+key).val(p[key]));
-			["cycle", "soak", "minimum"].forEach(key => $("#soil-"+key).val(Math.round(p[key]*60)));
+			["cycle", "soak", "minimum", "runtime"].forEach(key => $("#soil-"+key).val(p[key] === "" ? "" : Math.round(p[key]*60)));
 			header.rightBtn.on();
 		});
 		assert.deepEqual(JSON.parse(OSApp.SoilPrograms.exportDraft()), expected);
@@ -239,4 +240,88 @@ describe("Soil-water program drafts", function () {
 		assert.deepEqual(JSON.parse(decodeURIComponent($("#download-soil-draft").attr("href").split(",")[1])), saved);
 		assert.isFalse(OSApp.Firmware.sendToOS.called);
 	});
+	it("saves fixed runtime and reopens it without requiring delivery calibration", function () {
+		OSApp.SoilPrograms.editPage();
+		$("#soil-runtime").val(300).trigger("change");
+		$("#soil-cycle, #soil-soak").val(60).trigger("change");
+		$("#soil-minimum").val(30);
+		header.rightBtn.on();
+		var saved = JSON.parse(OSApp.SoilPrograms.exportDraft());
+		assert.equal(saved.version, 2);
+		assert.equal(saved.programs[0].amountMode, "runtime");
+		assert.equal(saved.programs[0].runtime, 5);
+		assert.equal(saved.programs[0].rate, "");
+		OSApp.SoilPrograms.editPage(0);
+		assert.equal($("#soil-runtime").val(), "300");
+		assert.include($("#addprogram").text(), "Elapsed: 9 min");
+		assert.isFalse(OSApp.Firmware.sendToOS.called);
+	});
+	it("previews catalogue geometry and only applies it explicitly", function () {
+		OSApp.SoilPrograms.editPage();
+		$("#soil-amount-mode").val("depth").trigger("change");
+		$("#equipment-choice").val("jardibric-a1480").trigger("change");
+		$("#equipment-rows").val(.5).trigger("input");
+		assert.equal($("#soil-rate").val(), "");
+		$("#apply-equipment").trigger("click");
+		assert.closeTo(Number($("#soil-rate").val()), 12.121212, .00001);
+		assert.equal($("#soil-efficiency").val(), "");
+		$("#soil-rate").val(11); $("#soil-efficiency").val(85); $("#soil-depth").val(6);
+		header.rightBtn.on();
+		var saved = OSApp.SoilPrograms.load().programs[0];
+		assert.equal(saved.rate, 11); assert.equal(saved.depth, 6);
+		assert.equal(JSON.parse(saved.equipment).entry.id, "jardibric-a1480");
+		var base = OSApp.EquipmentCatalog.load(), next = JSON.parse(JSON.stringify(base));
+		next.entries = [];
+		OSApp.EquipmentCatalog.save(base, next);
+		OSApp.SoilPrograms.editPage(0);
+		assert.equal($("#soil-rate").val(), "11");
+		assert.include($("#addprogram").text(), "Jardibric Aqua Gout");
+	});
+	it("maintains catalogue entries and safely backs up and imports them", function () {
+		sandbox.stub(OSApp.UIDom, "areYouSure").callsFake((title, message, callback) => callback());
+		OSApp.EquipmentCatalog.displayPage();
+		$("#add-equipment").trigger("click");
+		$("#catalog-name").val("Test hose"); $("#catalog-type").val("hose").trigger("change");
+		$("#catalog-flow").val(12); $("#catalog-conditions").val("At 1 bar");
+		$("#save-equipment").trigger("click");
+		assert.equal(OSApp.EquipmentCatalog.load().entries.at(-1).flow, 12);
+		$(".catalog-entry").last().trigger("click");
+		$("#catalog-flow").val(10); $("#save-equipment").trigger("click");
+		$("#export-catalog").trigger("click");
+		var exported = $("#catalog-json").val();
+		assert.equal(JSON.parse(exported).entries.at(-1).flow, 10);
+		$(".catalog-entry").last().trigger("click"); $("#delete-equipment").trigger("click");
+		assert.isFalse(OSApp.EquipmentCatalog.load().entries.some(e => e.name === "Test hose"));
+		$("#catalog-json").val(exported); $("#import-catalog").trigger("click");
+		assert.equal(OSApp.EquipmentCatalog.load().entries.at(-1).flow, 10);
+		assert.isFalse(OSApp.Firmware.sendToOS.called);
+	});
+	it("rejects invalid catalogue data, stale saves, and unsafe layout numbers", function () {
+		var base = OSApp.EquipmentCatalog.load(), next = JSON.parse(JSON.stringify(base));
+		next.entries[0].efficiency = 101;
+		assert.throws(() => OSApp.EquipmentCatalog.save(base, next));
+		next.entries[0].efficiency = 85; next.entries[0].name = "Changed";
+		OSApp.EquipmentCatalog.save(base, next);
+		assert.throws(() => OSApp.EquipmentCatalog.save(base, base), "another window");
+		assert.throws(() => OSApp.EquipmentCatalog.calculate(base.entries[0], {rows: 0}));
+		var emitter = {id:"e",name:"Emitter",type:"emitter",flow:2,spacing:"",efficiency:"",source:"",conditions:""};
+		assert.equal(OSApp.EquipmentCatalog.calculate(emitter, {count:20,area:10}), 4);
+		assert.throws(() => OSApp.EquipmentCatalog.calculate(emitter, {count:1.5,area:10}));
+		emitter.type = "hose"; emitter.flow = 12;
+		assert.equal(OSApp.EquipmentCatalog.calculate(emitter, {length:25,area:30}), 10);
+		memory[OSApp.EquipmentCatalog.key] = "invalid";
+		assert.throws(() => OSApp.EquipmentCatalog.load());
+	});
+	it("does not render catalogue controls in Standard mode or interpret names as markup", function () {
+		OSApp.currentSession.controller.options.smode = 0;
+		OSApp.EquipmentCatalog.displayPage();
+		assert.lengthOf($("#add-equipment"), 0);
+		OSApp.currentSession.controller.options.smode = 1;
+		var base = OSApp.EquipmentCatalog.load(), next = JSON.parse(JSON.stringify(base));
+		next.entries[0].name = '<img src=x onerror="bad()">';
+		OSApp.EquipmentCatalog.save(base, next);
+		OSApp.EquipmentCatalog.displayPage();
+		assert.lengthOf($("#equipment-catalog img"), 0);
+	});
+
 });

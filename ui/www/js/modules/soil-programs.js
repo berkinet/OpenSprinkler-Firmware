@@ -12,7 +12,7 @@ OSApp.SoilPrograms.load = function() {
 	var raw = OSApp.Storage.getItemSync( OSApp.SoilPrograms.storageKey() );
 	if ( raw ) {
 		var data = JSON.parse( raw );
-		if ( data.version !== 1 || !Array.isArray( data.programs ) || !Array.isArray( data.groups ) ) {
+		if ( ![ 1, 2 ].includes( data.version ) || !Array.isArray( data.programs ) || !Array.isArray( data.groups ) ) {
 			throw new Error( "Unsupported soil-water draft. Stored data has not been changed." );
 		}
 		return data;
@@ -69,7 +69,7 @@ OSApp.SoilPrograms.field = function( parent, id, label, value, type, hint ) {
 	if ( hint ) { $( "<p class='small'></p>" ).text( hint ).appendTo( row ); }
 	return input;
 };
-// Keep the v1 draft schema in minutes; shared UI controls use seconds.
+// Both draft versions store minutes; shared UI controls use seconds.
 OSApp.SoilPrograms.durationField = function( parent, id, label, minutes ) {
 	var row = $( "<div class='ui-field-contain duration-input'></div>" ).appendTo( parent ),
 		seconds = minutes === "" || minutes === undefined ? "" : Math.round( minutes * 60 );
@@ -112,7 +112,7 @@ OSApp.SoilPrograms.displayPage = function() {
 	} );
 };
 OSApp.SoilPrograms.editPage = function( sid ) {
-	var page, data, program, fields = {}, originalSid = sid;
+	var page, data, program, fields = {}, originalSid = sid, equipmentSnapshot;
 	function save() {
 		if ( !data || !fields.zone ) { return; }
 		try { data = OSApp.SoilPrograms.load(); } catch ( e ) { return OSApp.Errors.showError( e.message ); }
@@ -126,8 +126,9 @@ OSApp.SoilPrograms.editPage = function( sid ) {
 		}
 		if ( !fields.name.val().trim() ) { return OSApp.Errors.showError( "Enter a program name." ); }
 		var result = { sid: chosen, name: fields.name.val().trim(), profile: "garden", group: fields.group.val(), enabled: fields.enabled.prop( "checked" ) };
-		for ( var key of [ "rate", "efficiency", "cycle", "soak", "minimum" ] ) {
-			var raw = [ "cycle", "soak", "minimum" ].includes( key ) ? OSApp.SoilPrograms.durationMinutes( fields[ key ] ) : fields[ key ].val(), number = Number( raw );
+		result.amountMode = fields.amountMode.val();
+		for ( var key of [ "rate", "efficiency", "cycle", "soak", "minimum", "runtime", "depth" ] ) {
+			var raw = [ "cycle", "soak", "minimum", "runtime" ].includes( key ) ? OSApp.SoilPrograms.durationMinutes( fields[ key ] ) : fields[ key ].val(), number = Number( raw );
 			if ( raw === "" ) { result[ key ] = ""; continue; }
 			if ( !Number.isFinite( number ) || number < 0 || ( key !== "soak" && number === 0 ) || ( key === "efficiency" && number > 100 ) ) {
 				return OSApp.Errors.showError( "Enter positive values; efficiency must be 1\u2013100%. Soak may be zero." );
@@ -137,6 +138,11 @@ OSApp.SoilPrograms.editPage = function( sid ) {
 		if ( result.minimum !== "" && result.cycle !== "" && result.minimum > result.cycle ) {
 			return OSApp.Errors.showError( "Minimum useful pulse cannot exceed the maximum cycle." );
 		}
+		if ( result.amountMode === "runtime" && result.runtime !== "" && result.minimum !== "" && result.runtime < result.minimum ) {
+			return OSApp.Errors.showError( "Runtime per watering cannot be shorter than the minimum useful pulse." );
+		}
+		if ( equipmentSnapshot && equipmentSnapshot() ) { result.equipment = equipmentSnapshot(); }
+		data.version = 2;
 		data.programs = data.programs.filter( function( p ) { return p.sid !== originalSid; } ).concat( [ result ] );
 		try { OSApp.SoilPrograms.save( data ); } catch ( e ) { return OSApp.Errors.showError( "Could not save draft: " + e.message ); }
 		OSApp.UIDom.changePage( "#programs" );
@@ -157,23 +163,40 @@ OSApp.SoilPrograms.editPage = function( sid ) {
 	fields.enabled = body.find( "#soil-enabled" );
 	OSApp.SoilPrograms.select( body, "soil-profile", "Site profile", [ { value: "garden", label: "Garden (shared)" } ], "garden" );
 	fields.group = OSApp.SoilPrograms.select( body, "soil-group", "Priority group", data.groups.map( function( g ) { return { value: g, label: g }; } ), program.group );
-	body.append( "<h2>Application calibration</h2><p class='small'>Leave unknown values blank while reviewing the form. These must be calibrated before scheduling can be enabled.</p>" );
-	fields.rate = OSApp.SoilPrograms.field( body, "soil-rate", "Application rate (mm/hour)", program.rate, "number" );
-	fields.efficiency = OSApp.SoilPrograms.field( body, "soil-efficiency", "Application efficiency (%)", program.efficiency, "number" );
+	body.append( "<h2>Watering amount</h2><p class='small'>Weather changes when watering is due. The configured full event stays constant. Unknown values may remain blank in a draft.</p>" );
+	var modes = [ { value: "runtime", label: "Minutes per watering (assumed refill)" }, { value: "depth", label: "Water depth per watering" } ];
+	if ( program.sid !== undefined && ( !program.amountMode || program.amountMode === "legacy" ) ) { modes.push( { value: "legacy", label: "Existing deficit-based draft (legacy)" } ); }
+	fields.amountMode = OSApp.SoilPrograms.select( body, "soil-amount-mode", "Specify watering amount", modes, program.amountMode || ( program.sid === undefined ? "runtime" : "legacy" ) );
+	var runtimeBox = $( "<div></div>" ).appendTo( body ), depthBox = $( "<div></div>" ).appendTo( body ), calibration = $( "<div></div>" ).appendTo( body );
+	fields.runtime = OSApp.SoilPrograms.durationField( runtimeBox, "soil-runtime", "Total ON time per watering", program.runtime );
+	runtimeBox.append( "<p class='small'>A completed event is assumed to refill the zone. ETo and rainfall change frequency, not this runtime. Interrupted watering is not treated as a full refill. An event that cannot fit is skipped and reported.</p>" );
+	fields.depth = OSApp.SoilPrograms.field( depthBox, "soil-depth", "Net water depth per watering (mm)", program.depth, "number" );
+	calibration.append( "<h3>Application calibration</h3>" );
+	fields.rate = OSApp.SoilPrograms.field( calibration, "soil-rate", "Gross application rate (mm/hour)", program.rate, "number" );
+	fields.efficiency = OSApp.SoilPrograms.field( calibration, "soil-efficiency", "Application efficiency (%)", program.efficiency, "number" );
+	equipmentSnapshot = OSApp.EquipmentCatalog.programHelper( calibration, fields, program );
+	function amountVisibility() {
+		var mode = fields.amountMode.val();
+		runtimeBox.toggle( mode === "runtime" ); depthBox.toggle( mode === "depth" ); calibration.toggle( mode !== "runtime" );
+	}
+	fields.amountMode.on( "change", amountVisibility ); amountVisibility();
 	body.append( "<h2>Cycle & soak</h2><p class='small'>Split a watering event into short pulses. Other valves may run during a soak interval.</p>" );
 	fields.cycle = OSApp.SoilPrograms.durationField( body, "soil-cycle", "Maximum ON per cycle", program.cycle );
 	fields.soak = OSApp.SoilPrograms.durationField( body, "soil-soak", "Minimum soak between cycles", program.soak );
 	fields.minimum = OSApp.SoilPrograms.durationField( body, "soil-minimum", "Minimum useful pulse", program.minimum );
-	body.append( "<h3>Timing preview</h3><p class='small'>Illustration only: the engine will calculate the watering amount from depletion. This is not a scheduled runtime.</p>" );
+	body.append( "<h3>Timing preview</h3><p class='small'>Preview uses the configured amount when available. The example is only used for incomplete or legacy drafts; it is never saved as the event duration.</p>" );
 	var total = OSApp.SoilPrograms.durationField( body, "soil-example", "Example total ON time", 5 ), summary = $( "<p aria-live='polite'></p>" ).appendTo( body );
 	function update() {
-		var values = [ total, fields.cycle, fields.soak ].map( function( button ) {
+		var values = [ fields.amountMode.val() === "runtime" && fields.runtime.val() !== "" ? fields.runtime : total, fields.cycle, fields.soak ].map( function( button ) {
 			var minutes = OSApp.SoilPrograms.durationMinutes( button );
 			return minutes === "" ? NaN : minutes;
 		} );
+		if ( fields.amountMode.val() === "depth" && Number( fields.depth.val() ) > 0 && Number( fields.rate.val() ) > 0 && Number( fields.efficiency.val() ) > 0 ) {
+			values[ 0 ] = Math.floor( Number( fields.depth.val() ) * 3600 / ( Number( fields.rate.val() ) * Number( fields.efficiency.val() ) / 100 ) ) / 60;
+		}
 		summary.text( OSApp.SoilPrograms.pulseSummary.apply( null, values ) );
 	}
-	page.on( "input change", "#soil-example, #soil-cycle, #soil-soak", update );
+	page.on( "input change", "#soil-example, #soil-cycle, #soil-soak, #soil-runtime, #soil-depth, #soil-rate, #soil-efficiency, #soil-amount-mode", update );
 	update();
 	body.append( $( "<button class='ui-btn ui-btn-b'>Save draft</button>" ).on( "click", save ) );
 	if ( sid !== undefined ) {
@@ -239,7 +262,7 @@ OSApp.SoilPrograms.settingsPage = function() {
 	excluded = $( "<textarea id='soil-excluded'></textarea>" ).val( data.excluded ).appendTo( body );
 	body.append( "<h2>Capacity shortfalls</h2>" );
 	shortage = OSApp.SoilPrograms.select( body, "soil-shortage", "When capacity is insufficient", [ { value: "report_only", label: "Report missed watering only" }, { value: "promote_next", label: "Report and promote for next window only" } ], data.shortage );
-	body.append( "<p class='small'>Full refill is preferred. A sufficient partial refill may be planned when a full refill cannot fit. Promotion never changes the zone\u2019s assigned group; its size remains to be decided.</p><h2>Garden \xb7 shared site profile</h2><p class='small'>One profile initially; water balance is tracked separately for each valve. Blank values mean not yet calibrated.</p>" );
+	body.append( "<p class='small'>Full events are preferred. Calibrated water-depth mode can use a sufficient partial event when capacity is short. Runtime mode needs a complete event or reports a skip. Promotion never changes the zone\u2019s assigned group; its size remains to be decided.</p><h2>Garden \xb7 shared site profile</h2><p class='small'>One profile initially; water balance is tracked separately for each valve. Blank values mean not yet calibrated.</p>" );
 	[ [ "capacity", "Available water capacity (mm per metre of soil)" ], [ "roots", "Effective root depth (metres)" ], [ "depletion", "Allowed depletion (%)" ], [ "crop", "Crop coefficient" ], [ "rain", "Effective rainfall (%)" ] ].forEach( function( pair ) {
 		profile[ pair[ 0 ] ] = OSApp.SoilPrograms.field( body, "profile-" + pair[ 0 ], pair[ 1 ], data.profile[ pair[ 0 ] ], "number" );
 	} );

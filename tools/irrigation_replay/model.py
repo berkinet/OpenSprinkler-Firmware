@@ -73,6 +73,9 @@ class Zone:
     soak_seconds: int
     minimum_pulse_seconds: int = 1
     enabled: bool = True
+    watering_mode: str = "legacy"
+    runtime_seconds: int = 0
+    event_depth_mm: float = 0
 
     def __post_init__(self):
         for item in (self.id, self.profile_id, self.group_id):
@@ -83,13 +86,24 @@ class Zone:
         integer(self.minimum_pulse_seconds, 1)
         if self.minimum_pulse_seconds > self.cycle_seconds:
             raise ValueError('minimum pulse exceeds cycle limit')
-        if number(self.application_mm_per_hour) <= 0 or not 0 < number(self.efficiency) <= 1:
-            raise ValueError('invalid application rate or efficiency')
+        if self.watering_mode not in {'legacy', 'depth', 'runtime'}:
+            raise ValueError('unknown watering mode')
+        if self.watering_mode == 'runtime':
+            integer(self.runtime_seconds, 1)
+            if self.runtime_seconds < self.minimum_pulse_seconds:
+                raise ValueError('event runtime is shorter than minimum pulse')
+        else:
+            if number(self.application_mm_per_hour) <= 0 or not 0 < number(self.efficiency) <= 1:
+                raise ValueError('invalid application rate or efficiency')
+            if self.watering_mode == 'depth' and number(self.event_depth_mm) <= 0:
+                raise ValueError('event depth must be positive')
         if type(self.enabled) is not bool:
             raise ValueError('enabled must be boolean')
 
     @property
     def net_rate(self):
+        if self.watering_mode == "runtime":
+            raise ValueError("runtime refill assumption has no measured delivery rate")
         return number(self.application_mm_per_hour) * number(self.efficiency) / 3600
 
 
@@ -103,7 +117,7 @@ class Observation:
     id: str
     zone_id: str
     at: int
-    kind: str  # eto_mm, rain_mm, delivered_seconds, unknown_delivery, missing_weather
+    kind: str  # weather, calibrated seconds, explicit runtime-event completion, or uncertainty
     amount: float = 0
     revision: int = 1
 
@@ -113,13 +127,13 @@ class Observation:
         integer(self.at)
         integer(self.revision, 1)
         if self.kind not in {'eto_mm', 'rain_mm', 'delivered_seconds',
-                             'unknown_delivery', 'missing_weather'}:
+                             'unknown_delivery', 'missing_weather', 'completed_refill_seconds'}:
             raise ValueError('unsupported observation kind')
         if number(self.amount) < 0:
             raise ValueError('negative observation')
         if self.kind in {'unknown_delivery', 'missing_weather'} and self.amount != 0:
             raise ValueError('unknown observation cannot assert an amount')
-        if self.kind == 'delivered_seconds':
+        if self.kind in {'delivered_seconds', 'completed_refill_seconds'}:
             integer(self.amount)
 
 
@@ -142,6 +156,10 @@ class Ledger:
     def put(self, event):
         if event.zone_id not in self.zones:
             raise ValueError('unknown zone')
+        zone = self.zones[event.zone_id]
+        if event.kind == 'completed_refill_seconds' and (
+                zone.watering_mode != 'runtime' or event.amount != zone.runtime_seconds):
+            raise ValueError('refill requires the verified complete configured event runtime')
         key = (event.zone_id, event.id)
         previous = self.events.get(key)
         if previous:
@@ -174,6 +192,15 @@ class Ledger:
                 depletion += amount * number(profile.crop_coefficient)
             elif event.kind == 'rain_mm':
                 depletion -= amount * number(profile.effective_rain)
+            elif event.kind == 'completed_refill_seconds':
+                # This is an explicit completion assertion for an entire event,
+                # not a pulse acknowledgement. Credit is an assumed refill.
+                irrigation += depletion
+                depletion = Fraction(0)
+            elif zone.watering_mode == 'runtime':
+                # Partial/manual seconds cannot be translated into depth.
+                unresolved.append(event.id)
+                continue
             else:
                 credit = amount * zone.net_rate
                 irrigation += credit
@@ -184,7 +211,8 @@ class Ledger:
         return dict(depletion_mm=float(depletion), drainage_mm=float(drainage),
                     demand_beyond_capacity_mm=float(excess_demand),
                     irrigation_input_mm=float(irrigation), unresolved=unresolved,
-                    profile_version=profile.version)
+                    profile_version=profile.version,
+                    irrigation_basis="assumed_refill" if zone.watering_mode == "runtime" else "rate_and_efficiency")
 
     def checkpoint(self):
         return [asdict(e) for e in sorted(self.events.values(), key=lambda e: (e.zone_id, e.id))]
