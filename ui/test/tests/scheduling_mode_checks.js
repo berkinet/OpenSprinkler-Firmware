@@ -50,4 +50,19 @@ describe("Controller scheduling mode", function () {
 		assert.isTrue(send.calledWithMatch(/\/co\?pw=&.*smode=0/));
 		assert.isFalse(store.calledWith("smode"));
 	});
+	it("keeps manual location entry available without a deployment Maps key", function () {
+		var oldConfig = window.OSMapsConfig;
+		window.OSMapsConfig = { apiKey: "" };
+		try {
+			OSApp.Options.showOptions();
+			var open = sandbox.stub(OSApp.UIDom, "openPopup");
+			var map = sandbox.stub(OSApp.Options, "overlayMap");
+			$("#loc").trigger("click");
+			assert.isFalse(map.called);
+			assert.isTrue(open.calledOnce);
+			assert.equal(open.firstCall.args[0].find("#loc-entry").val(), "0,0");
+		} finally {
+			window.OSMapsConfig = oldConfig;
+		}
+	});
 });

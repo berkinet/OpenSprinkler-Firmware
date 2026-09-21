@@ -13,11 +13,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-// Create the script tag, set the appropriate attributes
-var script = document.createElement( "script" );
-script.src = "https://maps.googleapis.com/maps/api/js?key=AIzaSyDaT_HTZwFojXmvYIhwWudK00vFXzMmOKc&libraries=places&callback=initMap";
-script.async = true;
-
 // Attach your callback function to the `window` object
 window.initMap = function() {
     var markers = { pws: [], origin: [] },
@@ -250,5 +245,16 @@ window.initMap = function() {
     }
 };
 
-// Append the 'script' element to 'head'
-document.head.appendChild( script );
+// Deployment-owned browser Maps key; no upstream credential is bundled.
+var mapsKey = window.OSMapsConfig && window.OSMapsConfig.apiKey;
+if ( typeof mapsKey === "string" && mapsKey.trim() ) {
+    var script = document.createElement( "script" );
+    script.src = "https://maps.googleapis.com/maps/api/js?key=" + encodeURIComponent( mapsKey.trim() ) +
+        "&libraries=places&callback=initMap";
+    script.async = true;
+    document.head.appendChild( script );
+} else {
+    document.addEventListener( "DOMContentLoaded", function() {
+        document.getElementById( "map_canvas" ).textContent = "Map selection is unavailable. Enter GPS coordinates in Edit Options.";
+    } );
+}

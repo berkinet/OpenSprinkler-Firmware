@@ -196,6 +196,7 @@ window.currLocal = true;
 			// Sensor Logs requires this stack in dependency order. Keep it in
 			// parity with index.html. Missing chart assets must not block app startup.
 			loadOptionalScripts( [
+				"js/maps-config.js",
 				"vendor-js/chart.js",
 				"vendor-js/vis-timeline-graph2d.min.js",
 				"js/chart-touch.js",

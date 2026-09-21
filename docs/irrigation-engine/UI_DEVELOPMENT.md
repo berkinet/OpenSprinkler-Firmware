@@ -109,3 +109,43 @@ not enabled for automatic startup.
 
 No production controllers or real valves were involved. Integration of the new
 soil-water engine remains future work; only the DEMO firmware was compiled here.
+
+## Optional Maps and upstream integration
+
+GitHub secret-scanning alert 1 identified a Google Maps key inherited verbatim
+from the UI subtree's upstream revision. The same value occurred in `map.js`
+and `options.js`. GitHub reported validity as unknown. No attempt was made to
+use the key to test its validity or inspect the provider account.
+
+The current source and packaged UI contain no bundled Google API key. On this
+test deployment, clicking Location opens the existing GPS-coordinate editor;
+reverse geocoding returns the coordinates or supplied fallback without making
+a Google request. Existing controller location and weather settings are retained.
+
+Map selection remains optional: `ui/www/js/maps-config.js` ships an empty
+`window.OSMapsConfig.apiKey`. A deployment can replace that file in its **built
+assets**, outside tracked source, with a key belonging to that deployment.
+All three entry points (firmware bootstrap, standalone app and map iframe) load
+the same configuration. A configured key retains the original map flow;
+reverse-lookup failures fall back to coordinates. No real key was used to test
+the optional enabled path: unit tests use a fake value and stubbed requests.
+
+Any configured browser key is visible to clients and needs appropriate Google
+application/API restrictions. Moving the value to deployment configuration is
+not a way to keep a browser key secret; never put a server-side credential there.
+
+This cleanup is a separate commit from the scheduling selector. For eventual
+upstream contribution, prepare focused firmware and App patches against their
+respective repositories. The maintainers can adopt the scheduling changes
+without changing their Maps deployment; optionally, they can adopt this
+configuration improvement separately. Do not submit the subtree import itself
+as an App feature patch or copy the inherited key into a new build.
+
+The historical import still contains the inherited value. No history was
+rewritten, no key was revoked, and the GitHub alert was not dismissed as a false
+positive or marked revoked. Restrictions/revocation can only be verified by its
+owner. Removing the current copy alone does not resolve historical exposure.
+
+Validation: 376 browser tests passed, including disabled-map fallback and a
+stubbed configured-key failure path. A Google API-key-pattern scan of tracked
+working files and the rebuilt UI archive found no matches.

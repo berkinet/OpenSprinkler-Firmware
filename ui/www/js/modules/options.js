@@ -1272,6 +1272,10 @@ OSApp.Options.showOptions = function( expandItem ) {
 
 	page.find( "#loc" ).on( "click", function() {
 		var loc = $( this );
+		if ( !OSApp.Options.getMapsApiKey() ) {
+			loc.find( ".edit-loc" ).trigger( "click" );
+			return false;
+		}
 
 		loc.prop( "disabled", true );
 		OSApp.Options.overlayMap( function( selected, station ) {
@@ -2517,11 +2521,21 @@ OSApp.Options.showOptions = function( expandItem ) {
 	$.mobile.pageContainer.append( page );
 };
 
+OSApp.Options.getMapsApiKey = function() {
+	var key = window.OSMapsConfig && window.OSMapsConfig.apiKey;
+	return typeof key === "string" ? key.trim() : "";
+};
+
 OSApp.Options.coordsToLocation = function( lat, lon, callback, fallback ) {
 	callback = callback || function() {};
 	fallback = fallback || lat + "," + lon;
+	var mapsKey = OSApp.Options.getMapsApiKey();
+	if ( !mapsKey ) {
+		callback( fallback );
+		return;
+	}
 
-	$.getJSON( "https://maps.googleapis.com/maps/api/geocode/json?latlng=" + lat + "," + lon + "&key=AIzaSyDaT_HTZwFojXmvYIhwWudK00vFXzMmOKc&result_type=locality|sublocality|administrative_area_level_1|country", function( data ) {
+	$.getJSON( "https://maps.googleapis.com/maps/api/geocode/json?latlng=" + lat + "," + lon + "&key=" + encodeURIComponent( mapsKey ) + "&result_type=locality|sublocality|administrative_area_level_1|country", function( data ) {
 		if ( data.results.length === 0 ) {
 			callback( fallback );
 			return;
@@ -2582,11 +2596,15 @@ OSApp.Options.coordsToLocation = function( lat, lon, callback, fallback ) {
 		}
 
 		callback( location );
-	} );
+	} ).fail( function() { callback( fallback ); } );
 };
 
 OSApp.Options.overlayMap = function( callback ) {
 	callback = callback || function() {};
+	if ( !OSApp.Options.getMapsApiKey() ) {
+		callback( false );
+		return;
+	}
 
 	// Looks up the location and shows a list possible matches for selection
 	// Returns the selection to the callback
