@@ -6,6 +6,7 @@ Research and design an optional soil-depletion scheduling mode and watering-wind
 
 - [Scheduling specification, draft 1](SCHEDULING_SPEC.md) — agreed policies, proposed defaults and integration boundaries
 - [Offline replay plan](REPLAY_PLAN.md) — acceptance scenarios and numerical examples
+- [Dedicated test Pi setup](TEST_PI_SETUP.md) — environment and reproducible DEMO build
 
 The [first offline reference model](../../tools/irrigation_replay/README.md) is implemented with synthetic fixtures and tests. Multi-window service-horizon planning remains to be built. Firmware and controller behavior are unchanged.
 
@@ -27,6 +28,6 @@ The historical notes originally required autonomous scheduling inside RainMachin
 - Existing Irrigation Monitor: https://github.com/berkinet/Indigo-Irrigation-Monitor-Plugin
 - Separate upstream UI (not yet forked): https://github.com/OpenSprinkler/OpenSprinkler-App
 
-Current phase: research and design. Use different configurations of OS's existing HTTP zone type; do not introduce a new zone type. Begin with the OS ETo service and offline validation. No controller deployment or file copying is authorized.
+Current phase: offline prototype and dedicated test Pi setup. Use different configurations of OS's existing HTTP zone type; do not introduce a new zone type. Begin with the OS ETo service and offline validation. Installation and builds on the new test Pi are authorized; production controller changes and file copying remain unauthorized.
 
 This project is public to support review and collaboration with OpenSprinkler developers. Local infrastructure identifiers in the historical handoff have been replaced with placeholders. It contains authored research, not exported controller source.
