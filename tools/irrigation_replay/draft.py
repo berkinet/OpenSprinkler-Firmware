@@ -158,7 +158,7 @@ def compile_draft(draft):
         path = f'programs[{i}]'
         if v.get(path, lambda: shape(p, ('sid', 'name', 'profile', 'group', 'enabled',
                                         'rate', 'efficiency', 'cycle', 'soak', 'minimum',
-                                        *(() if draft['version'] == 1 else ('amountMode', 'runtime', 'depth', 'equipment'))))) is None:
+                                        *(() if draft['version'] == 1 else ('amountMode', 'runtime', 'depth', 'equipment', 'calibrationSource'))))) is None:
             continue
         sid = v.get(path+'.sid', lambda: integer(p.get('sid')))
         name = v.get(path+'.name', lambda: text(p.get('name')))
@@ -176,6 +176,8 @@ def compile_draft(draft):
         if not p['enabled']:
             disabled.append(dict(sid=sid, name=name, reason='disabled'))
             continue
+        if p.get('calibrationSource', 'manual') not in ('manual', 'catalogue'):
+            v.issues.append(dict(path=path+'.calibrationSource', message='unknown calibration method'))
         mode = p.get('amountMode', 'legacy')
         if mode not in ('legacy', 'depth', 'runtime'):
             v.issues.append(dict(path=path+'.amountMode', message='unknown watering amount mode'))

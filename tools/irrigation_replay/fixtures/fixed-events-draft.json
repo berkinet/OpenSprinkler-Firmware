@@ -42,7 +42,8 @@
       "minimum": 0.016666666666666666,
       "amountMode": "runtime",
       "runtime": 5,
-      "depth": ""
+      "depth": "",
+      "calibrationSource": "manual"
     },
     {
       "sid": 1,
@@ -57,7 +58,8 @@
       "minimum": 0.016666666666666666,
       "amountMode": "depth",
       "runtime": "",
-      "depth": 6
+      "depth": 6,
+      "calibrationSource": "manual"
     }
   ]
 }

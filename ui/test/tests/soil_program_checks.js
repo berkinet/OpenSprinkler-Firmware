@@ -265,16 +265,16 @@ describe("Soil-water program drafts", function () {
 		$("#apply-equipment").trigger("click");
 		assert.closeTo(Number($("#soil-rate").val()), 12.121212, .00001);
 		assert.equal($("#soil-efficiency").val(), "");
-		$("#soil-rate").val(11); $("#soil-efficiency").val(85); $("#soil-depth").val(6);
+		$("#soil-calibration-source").val("catalogue").trigger("change"); $("#soil-depth").val(6);
 		header.rightBtn.on();
 		var saved = OSApp.SoilPrograms.load().programs[0];
-		assert.equal(saved.rate, 11); assert.equal(saved.depth, 6);
+		assert.closeTo(saved.rate, 12.121212, .00001); assert.equal(saved.depth, 6);
 		assert.equal(JSON.parse(saved.equipment).entry.id, "jardibric-a1480");
 		var base = OSApp.EquipmentCatalog.load(), next = JSON.parse(JSON.stringify(base));
 		next.entries = [];
 		OSApp.EquipmentCatalog.save(base, next);
 		OSApp.SoilPrograms.editPage(0);
-		assert.equal($("#soil-rate").val(), "11");
+		assert.closeTo(Number($("#soil-rate").val()), 12.121212, .00001);
 		assert.include($("#addprogram").text(), "Jardibric Aqua Gout");
 	});
 	it("maintains catalogue entries and safely backs up and imports them", function () {
@@ -322,6 +322,33 @@ describe("Soil-water program drafts", function () {
 		OSApp.EquipmentCatalog.save(base, next);
 		OSApp.EquipmentCatalog.displayPage();
 		assert.lengthOf($("#equipment-catalog img"), 0);
+	});
+
+	it("shows manual calibration or catalogue controls exclusively and preserves the saved choice", function () {
+		OSApp.SoilPrograms.editPage();
+		$("#soil-amount-mode").val("depth").trigger("change");
+		assert.notEqual($("#soil-manual-calibration").css("display"), "none");
+		assert.equal($("#soil-catalogue-calibration").css("display"), "none");
+		$("#soil-calibration-source").val("catalogue").trigger("change");
+		assert.equal($("#soil-manual-calibration").css("display"), "none");
+		assert.notEqual($("#soil-catalogue-calibration").css("display"), "none");
+		$("#equipment-choice").val("jardibric-a1480").trigger("change");
+		$("#equipment-rows").val(.5).trigger("input");
+		assert.include($("#equipment-rows").closest(".ui-field-contain").find("button").attr("title"), "raspberries");
+		header.rightBtn.on();
+		assert.include(OSApp.Errors.showError.lastCall.args[0], "Apply");
+		$("#apply-equipment").trigger("click"); header.rightBtn.on();
+		OSApp.SoilPrograms.editPage(0);
+		assert.equal($("#soil-calibration-source").val(), "catalogue");
+		assert.equal($("#equipment-rows").val(), "0.5");
+		assert.equal($("#soil-manual-calibration").css("display"), "none");
+		$("#equipment-rows").val(1).trigger("input");
+		header.rightBtn.on();
+		assert.include(OSApp.Errors.showError.lastCall.args[0], "Apply");
+		$("#soil-calibration-source").val("manual").trigger("change");
+		$("#soil-rate").val(10); $("#soil-efficiency").val(85); header.rightBtn.on();
+		assert.equal(OSApp.SoilPrograms.load().programs[0].calibrationSource, "manual");
+		assert.notProperty(OSApp.SoilPrograms.load().programs[0], "equipment");
 	});
 
 });

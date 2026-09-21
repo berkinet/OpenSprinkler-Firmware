@@ -125,7 +125,9 @@ OSApp.SoilPrograms.editPage = function( sid ) {
 			return OSApp.Errors.showError( "This valve already has a soil-water program." );
 		}
 		if ( !fields.name.val().trim() ) { return OSApp.Errors.showError( "Enter a program name." ); }
-		var result = { sid: chosen, name: fields.name.val().trim(), profile: "garden", group: fields.group.val(), enabled: fields.enabled.prop( "checked" ) };
+		var equipment;
+		try { equipment = fields.amountMode.val() !== "runtime" && fields.calibrationSource.val() === "catalogue" ? equipmentSnapshot() : undefined; } catch ( e ) { return OSApp.Errors.showError( e.message ); }
+		var result = { calibrationSource: fields.calibrationSource.val(), sid: chosen, name: fields.name.val().trim(), profile: "garden", group: fields.group.val(), enabled: fields.enabled.prop( "checked" ) };
 		result.amountMode = fields.amountMode.val();
 		for ( var key of [ "rate", "efficiency", "cycle", "soak", "minimum", "runtime", "depth" ] ) {
 			var raw = [ "cycle", "soak", "minimum", "runtime" ].includes( key ) ? OSApp.SoilPrograms.durationMinutes( fields[ key ] ) : fields[ key ].val(), number = Number( raw );
@@ -141,7 +143,7 @@ OSApp.SoilPrograms.editPage = function( sid ) {
 		if ( result.amountMode === "runtime" && result.runtime !== "" && result.minimum !== "" && result.runtime < result.minimum ) {
 			return OSApp.Errors.showError( "Runtime per watering cannot be shorter than the minimum useful pulse." );
 		}
-		if ( equipmentSnapshot && equipmentSnapshot() ) { result.equipment = equipmentSnapshot(); }
+		if ( equipment ) { result.equipment = equipment; }
 		data.version = 2;
 		data.programs = data.programs.filter( function( p ) { return p.sid !== originalSid; } ).concat( [ result ] );
 		try { OSApp.SoilPrograms.save( data ); } catch ( e ) { return OSApp.Errors.showError( "Could not save draft: " + e.message ); }
@@ -172,9 +174,16 @@ OSApp.SoilPrograms.editPage = function( sid ) {
 	runtimeBox.append( "<p class='small'>A completed event is assumed to refill the zone. ETo and rainfall change frequency, not this runtime. Interrupted watering is not treated as a full refill. An event that cannot fit is skipped and reported.</p>" );
 	fields.depth = OSApp.SoilPrograms.field( depthBox, "soil-depth", "Net water depth per watering (mm)", program.depth, "number" );
 	calibration.append( "<h3>Application calibration</h3>" );
-	fields.rate = OSApp.SoilPrograms.field( calibration, "soil-rate", "Gross application rate (mm/hour)", program.rate, "number" );
-	fields.efficiency = OSApp.SoilPrograms.field( calibration, "soil-efficiency", "Application efficiency (%)", program.efficiency, "number" );
-	equipmentSnapshot = OSApp.EquipmentCatalog.programHelper( calibration, fields, program );
+	fields.calibrationSource = OSApp.SoilPrograms.select( calibration, "soil-calibration-source", "Calibration method", [ { value: "manual", label: "Manual entry" }, { value: "catalogue", label: "Equipment catalogue" } ], program.calibrationSource || "manual" );
+	var manualBox = $( "<div id='soil-manual-calibration'></div>" ).appendTo( calibration ), catalogBox = $( "<div id='soil-catalogue-calibration'></div>" ).appendTo( calibration );
+	fields.rate = OSApp.SoilPrograms.field( manualBox, "soil-rate", "Gross application rate (mm/hour)", program.rate, "number" );
+	fields.efficiency = OSApp.SoilPrograms.field( manualBox, "soil-efficiency", "Application efficiency (%)", program.efficiency, "number" );
+	equipmentSnapshot = OSApp.EquipmentCatalog.programHelper( catalogBox, fields, program );
+	function calibrationVisibility() {
+		var manual = fields.calibrationSource.val() === "manual";
+		manualBox.toggle( manual ); catalogBox.toggle( !manual );
+	}
+	fields.calibrationSource.on( "change", calibrationVisibility ); calibrationVisibility();
 	function amountVisibility() {
 		var mode = fields.amountMode.val();
 		runtimeBox.toggle( mode === "runtime" ); depthBox.toggle( mode === "depth" ); calibration.toggle( mode !== "runtime" );

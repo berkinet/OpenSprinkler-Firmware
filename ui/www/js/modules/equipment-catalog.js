@@ -53,7 +53,7 @@ OSApp.EquipmentCatalog.calculate = function( entry, geometry ) {
 	function positive( key ) {
 		var n = Number( geometry[ key ] );
 		if ( !Number.isFinite( n ) || n <= 0 ) { throw new Error( {
-			rows: "Enter the distance between parallel hose lengths in metres, greater than zero (for example, 0.5 for 50 cm).",
+			rows: "Enter hose spacing, or planting-strip width for a single row, in metres greater than zero (for example, 0.5 for 50 cm).",
 			count: "Enter the number of emitters watering this area, as a whole number greater than zero.",
 			length: "Enter the length of water-releasing hose in metres, greater than zero.",
 			area: "Enter the planting area served by these emitters or hose in square metres, greater than zero."
@@ -133,30 +133,34 @@ OSApp.EquipmentCatalog.displayPage = function() {
 };
 OSApp.EquipmentCatalog.programHelper = function( parent, fields, program ) {
 	var entries;
-	try { entries = OSApp.EquipmentCatalog.load().entries; } catch ( e ) { parent.append( $( "<p></p>" ).text( e.message ) ); return function() { return program.equipment; }; }
-	var snapshot = program.equipment, box = $( "<fieldset data-role='collapsible'><legend>Use equipment catalogue</legend></fieldset>" ).appendTo( parent );
-	var select = OSApp.SoilPrograms.select( box, "equipment-choice", "Equipment", [ { value: "", label: "Select equipment" } ].concat( entries.map( function( e ) { return { value: e.id, label: e.name }; } ) ), "" );
+	try { entries = OSApp.EquipmentCatalog.load().entries; } catch ( e ) { parent.append( $( "<p></p>" ).text( e.message ) ); return function() { throw new Error( "Catalogue unavailable. Choose Manual entry or repair the catalogue." ); }; }
+	var snapshot = program.equipment, saved, dirty = false;
+	try { saved = snapshot ? JSON.parse( snapshot ) : null; } catch { saved = null; }
+	// Reopen the copied specification, including entries since edited or deleted.
+	var box = $( "<div></div>" ).appendTo( parent );
+	var select = OSApp.SoilPrograms.select( box, "equipment-choice", "Equipment", [ { value: "", label: "Select equipment" } ].concat( saved && saved.entry ? [ { value: "saved-snapshot", label: "Saved settings: " + saved.entry.name } ] : [] ).concat( entries.map( function( e ) { return { value: e.id, label: e.name }; } ) ), saved && saved.entry ? "saved-snapshot" : "" );
 	var details = $( "<p></p>" ).appendTo( box ), geometry = {};
-	[ [ "rows", "Distance between parallel hoses (metres)", "Distance from the centre of one length of drip hose to the centre of the next parallel length. For example, enter 0.5 for hoses 50 cm apart. This is not the spacing between drippers along a hose. The calculation assumes a regularly spaced layout; for irregular planting, use emitter count and planting area instead." ],
+	[ [ "rows", "Hose spacing / single-row width (metres)", "Distance from the centre of one length of drip hose to the centre of the next parallel length. For example, enter 0.5 for hoses 50 cm apart. This is not the spacing between drippers along a hose. For a single hose along a row of raspberries, enter the width of the planting strip served by that hose instead. For example, a 10-metre hose serving a strip 0.5 metres wide represents 5 square metres: enter 0.5 here. Use the planting-strip width, not just the visible wet spots. For irregular layouts, use emitter count and planting area instead." ],
 		[ "count", "Number of emitters", "Count the drippers or small sprinklers supplying the planting area entered below. This calculation assumes they all have the selected flow rating. Count emitters, not metres of supply tubing." ],
 		[ "length", "Water-releasing hose length (metres)", "Total length of porous or soaker hose that releases water into this planting area. Do not include plain supply tubing. For example, two 10-metre lengths total 20 metres." ],
 		[ "area", "Planting area served (m\u00b2)", "Area of planting served by the emitters or hose entered above. For a rectangular bed, multiply length by width: 5 metres by 2 metres is 10 square metres. Use the same planting area represented by the soil-water balance, not just the small wet spots around drippers." ] ].forEach( function( pair ) {
-		geometry[ pair[ 0 ] ] = OSApp.SoilPrograms.field( box, "equipment-" + pair[ 0 ], pair[ 1 ], "", "number" );
+		geometry[ pair[ 0 ] ] = OSApp.SoilPrograms.field( box, "equipment-" + pair[ 0 ], pair[ 1 ], saved && saved.geometry ? saved.geometry[ pair[ 0 ] ] : "", "number" );
 		OSApp.EquipmentCatalog.addHelp( geometry[ pair[ 0 ] ], pair[ 2 ] );
 	} );
 	var preview = $( "<p aria-live='polite'></p>" ).appendTo( box );
-	function chosen() { return entries.find( function( e ) { return e.id === select.val(); } ); }
+	function chosen() { return select.val() === "saved-snapshot" && saved ? saved.entry : entries.find( function( e ) { return e.id === select.val(); } ); }
 	function values() { var result = {}; Object.keys( geometry ).forEach( function( key ) { result[ key ] = geometry[ key ].val(); } ); return result; }
 	function update() {
 		var entry = chosen();
 		Object.keys( geometry ).forEach( function( key ) { geometry[ key ].closest( ".ui-field-contain" ).toggle( !!entry && ( { dripline: [ "rows" ], emitter: [ "count", "area" ], hose: [ "length", "area" ], rate: [] } )[ entry.type ].includes( key ) ); } );
 		details.text( entry ? entry.conditions + " Source: " + entry.source : "" );
-		try { preview.text( entry ? "Estimated gross application rate: " + OSApp.EquipmentCatalog.calculate( entry, values() ).toFixed( 3 ) + " mm/hour. Efficiency: " + ( entry.efficiency === "" ? "enter separately" : entry.efficiency + "% (estimate)" ) : "" ); } catch ( e ) { preview.text( e.message ); }
+		try { preview.text( entry ? "Estimated gross application rate: " + OSApp.EquipmentCatalog.calculate( entry, values() ).toFixed( 3 ) + " mm/hour. Efficiency: " + ( entry.efficiency === "" ? "not configured; set an estimate in Equipment catalogue maintenance, or choose Manual entry" : entry.efficiency + "% (estimate)" ) : "" ); } catch ( e ) { preview.text( e.message ); }
 	}
-	select.on( "change", update ); box.on( "input change", "input", update ); update();
+	function changed() { dirty = true; update(); }
+	select.on( "change", changed ); box.on( "input change", "input", changed ); update();
 	var provenance = $( "<p class='small'></p>" ).appendTo( parent );
 	if ( snapshot ) {
-		try { provenance.text( "Originally estimated from " + JSON.parse( snapshot ).entry.name + ". The editable values above are used for scheduling." ); } catch { provenance.text( "Saved equipment reference is available in the draft export." ); }
+		try { provenance.text( "Originally estimated from " + JSON.parse( snapshot ).entry.name + ". The saved values remain unchanged until you apply an entry." ); } catch { provenance.text( "Saved equipment reference is available in the draft export." ); }
 	}
 	$( "<button id='apply-equipment' type='button' class='ui-btn'>Apply equipment values</button>" ).appendTo( box ).on( "click", function() {
 		var entry = chosen();
@@ -166,8 +170,16 @@ OSApp.EquipmentCatalog.programHelper = function( parent, fields, program ) {
 			fields.rate.val( rate ).trigger( "change" );
 			fields.efficiency.val( entry.efficiency ).trigger( "change" );
 			snapshot = JSON.stringify( { catalogVersion: 1, entry: entry, geometry: values(), appliedRate: rate } );
-			provenance.text( "Estimated from " + entry.name + ". You can override rate and efficiency below." );
+			dirty = false;
+			provenance.text( "Estimated from " + entry.name + ". Applied: " + rate.toFixed( 3 ) + " mm/hour; efficiency " + ( entry.efficiency === "" ? "not configured" : entry.efficiency + "%" ) + "." );
 		} catch ( e ) { OSApp.Errors.showError( e.message ); }
 	} );
-	return function() { return snapshot; };
+	return function() {
+		if ( !snapshot || dirty ) { throw new Error( "Apply the selected equipment values before saving, or choose Manual entry." ); }
+		var applied = JSON.parse( snapshot );
+		if ( Number( fields.rate.val() ) !== applied.appliedRate || String( fields.efficiency.val() ) !== String( applied.entry.efficiency ) ) {
+			throw new Error( "Apply the equipment values to use catalogue calibration, or choose Manual entry to keep your custom values." );
+		}
+		return snapshot;
+	};
 };

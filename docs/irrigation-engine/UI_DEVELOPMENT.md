@@ -313,3 +313,21 @@ All 64 offline tests also passed on the Pi. Installed-page inspection confirmed
 runtime/depth selection and catalogue maintenance. Non-ASCII catalogue strings
 use JavaScript Unicode escapes because the firmware bootstrap otherwise decodes
 literal UTF-8 incorrectly. No firmware restart or valve command was needed.
+
+### Exclusive calibration methods and single-row help
+
+Owner refinement: show either **Manual entry** (rate and efficiency) or
+**Equipment catalogue** (equipment, layout and calculated summary), never both
+sets of controls. `calibrationSource` persists the choice in v2 drafts; older
+programs default to manual to preserve any overrides. Catalogue edits require
+Apply before saving. Saved catalogue snapshots reopen independently of current
+catalogue entries; current entries remain available for explicit reapplication.
+Missing catalogue efficiency stays unconfigured: edit the catalogue estimate or
+choose manual entry. Switching to manual drops the active catalogue association.
+
+The hose-spacing info popup now explains a single hose along raspberries: use
+the planting-strip width, e.g. 0.5 m for a 10 m row serving 5 m². It distinguishes
+this from dripper spacing and the visible wetted footprint. The field label is
+“Hose spacing / single-row width (metres).” Validation: 407 browser tests and 64
+offline engine tests pass, including save/reopen, changed-layout apply checks,
+exclusive controls and the shared exported fixture.
