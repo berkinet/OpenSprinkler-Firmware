@@ -26,7 +26,7 @@ OSApp.EquipmentCatalog.validate = function( data ) {
 		if ( !e || typeof e.id !== "string" || !e.id.trim() || ids.has( e.id ) || typeof e.name !== "string" || !e.name.trim() || names.has( e.name.trim().toLowerCase() ) ) { throw new Error( "Each catalogue entry needs a unique ID and name." ); }
 		ids.add( e.id ); names.add( e.name.trim().toLowerCase() );
 		if ( !OSApp.EquipmentCatalog.types.some( function( t ) { return t.value === e.type; } ) || !Number.isFinite( e.flow ) || e.flow <= 0 ) { throw new Error( "Choose an equipment type and positive flow or rate." ); }
-		if ( e.type === "dripline" && ( !Number.isFinite( e.spacing ) || e.spacing <= 0 ) ) { throw new Error( "Emitter spacing must be positive." ); }
+		if ( e.type === "dripline" && ( !Number.isFinite( e.spacing ) || e.spacing <= 0 ) ) { throw new Error( "Enter the distance between drippers along the hose in metres, greater than zero." ); }
 		if ( e.efficiency !== "" && ( !Number.isFinite( e.efficiency ) || e.efficiency <= 0 || e.efficiency > 100 ) ) { throw new Error( "Efficiency must be blank or greater than 0 and at most 100%." ); }
 		if ( typeof e.source !== "string" || typeof e.conditions !== "string" ) { throw new Error( "Source and operating conditions must be text." ); }
 	} );
@@ -41,11 +41,23 @@ OSApp.EquipmentCatalog.save = function( baseline, data ) {
 	OSApp.EquipmentCatalog.validate( data );
 	OSApp.Storage.setItemSync( OSApp.EquipmentCatalog.key, JSON.stringify( data ) );
 };
+// Reuse OpenSprinkler's help icon and popup; title also provides hover help.
+OSApp.EquipmentCatalog.addHelp = function( input, text ) {
+	var label = input.closest( ".ui-field-contain" ).find( "label" );
+	$( "<button type='button' class='help-icon btn-no-border ui-btn ui-icon-info ui-btn-icon-notext'></button>" )
+		.attr( { title: text, "aria-label": "About " + label.text() } ).data( "helptext", text )
+		.on( "click", OSApp.UIDom.showHelpText ).appendTo( label );
+};
 OSApp.EquipmentCatalog.calculate = function( entry, geometry ) {
 	OSApp.EquipmentCatalog.validate( { version: 1, entries: [ entry ] } );
 	function positive( key ) {
 		var n = Number( geometry[ key ] );
-		if ( !Number.isFinite( n ) || n <= 0 ) { throw new Error( "Enter positive layout values." ); }
+		if ( !Number.isFinite( n ) || n <= 0 ) { throw new Error( {
+			rows: "Enter the distance between parallel hose lengths in metres, greater than zero (for example, 0.5 for 50 cm).",
+			count: "Enter the number of emitters watering this area, as a whole number greater than zero.",
+			length: "Enter the length of water-releasing hose in metres, greater than zero.",
+			area: "Enter the planting area served by these emitters or hose in square metres, greater than zero."
+		}[ key ] ); }
 		return n;
 	}
 	var rate = entry.flow;
@@ -83,7 +95,8 @@ OSApp.EquipmentCatalog.displayPage = function() {
 		fields.name = OSApp.SoilPrograms.field( editor, "catalog-name", "Name / model", e.name );
 		fields.type = OSApp.SoilPrograms.select( editor, "catalog-type", "Type", OSApp.EquipmentCatalog.types, e.type );
 		fields.flow = OSApp.SoilPrograms.field( editor, "catalog-flow", "Flow / application rate (units above)", e.flow, "number" );
-		fields.spacing = OSApp.SoilPrograms.field( editor, "catalog-spacing", "Emitter spacing (metres, dripline only)", e.spacing, "number" );
+		fields.spacing = OSApp.SoilPrograms.field( editor, "catalog-spacing", "Spacing between drippers (metres)", e.spacing, "number" );
+		OSApp.EquipmentCatalog.addHelp( fields.spacing, "Distance along one hose from one built-in dripper to the next. For example, enter 0.33 for drippers 33 cm apart. This is a product specification, separate from the distance between parallel lengths of hose in your garden." );
 		fields.efficiency = OSApp.SoilPrograms.field( editor, "catalog-efficiency", "Estimated efficiency (%) \u2014 optional", e.efficiency, "number" );
 		fields.conditions = OSApp.SoilPrograms.field( editor, "catalog-conditions", "Pressure, settings and other assumptions", e.conditions );
 		fields.source = OSApp.SoilPrograms.field( editor, "catalog-source", "Source / reference", e.source );
@@ -124,8 +137,12 @@ OSApp.EquipmentCatalog.programHelper = function( parent, fields, program ) {
 	var snapshot = program.equipment, box = $( "<fieldset data-role='collapsible'><legend>Use equipment catalogue</legend></fieldset>" ).appendTo( parent );
 	var select = OSApp.SoilPrograms.select( box, "equipment-choice", "Equipment", [ { value: "", label: "Select equipment" } ].concat( entries.map( function( e ) { return { value: e.id, label: e.name }; } ) ), "" );
 	var details = $( "<p></p>" ).appendTo( box ), geometry = {};
-	[ [ "rows", "Spacing between runs (metres)" ], [ "count", "Number of emitters" ], [ "length", "Hose length (metres)" ], [ "area", "Represented planting area (m\u00b2)" ] ].forEach( function( pair ) {
+	[ [ "rows", "Distance between parallel hoses (metres)", "Distance from the centre of one length of drip hose to the centre of the next parallel length. For example, enter 0.5 for hoses 50 cm apart. This is not the spacing between drippers along a hose. The calculation assumes a regularly spaced layout; for irregular planting, use emitter count and planting area instead." ],
+		[ "count", "Number of emitters", "Count the drippers or small sprinklers supplying the planting area entered below. This calculation assumes they all have the selected flow rating. Count emitters, not metres of supply tubing." ],
+		[ "length", "Water-releasing hose length (metres)", "Total length of porous or soaker hose that releases water into this planting area. Do not include plain supply tubing. For example, two 10-metre lengths total 20 metres." ],
+		[ "area", "Planting area served (m\u00b2)", "Area of planting served by the emitters or hose entered above. For a rectangular bed, multiply length by width: 5 metres by 2 metres is 10 square metres. Use the same planting area represented by the soil-water balance, not just the small wet spots around drippers." ] ].forEach( function( pair ) {
 		geometry[ pair[ 0 ] ] = OSApp.SoilPrograms.field( box, "equipment-" + pair[ 0 ], pair[ 1 ], "", "number" );
+		OSApp.EquipmentCatalog.addHelp( geometry[ pair[ 0 ] ], pair[ 2 ] );
 	} );
 	var preview = $( "<p aria-live='polite'></p>" ).appendTo( box );
 	function chosen() { return entries.find( function( e ) { return e.id === select.val(); } ); }
