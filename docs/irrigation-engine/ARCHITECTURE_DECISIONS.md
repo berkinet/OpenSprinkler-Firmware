@@ -106,3 +106,15 @@ now groups have a name and an editable order only; additional properties can
 be introduced later. Implemented with Move up / Move down and a highest-first
 list, conditional on the saved Soil water balance selection. Renaming retains
 program assignments; the initial implementation retains browser-draft storage.
+
+## Equipment presets alongside direct calibration
+
+Owner direction: offer direct application-rate (mm/hour) and efficiency (%)
+entry, plus common equipment types to simplify setup. The current garden uses
+drip emitters, spot mini-sprinklers, perforated lines and drip/soaker hose.
+Manufacturer ratings and university guidance can support explicit estimates;
+measurement is a refinement, not an inherent requirement of the equations.
+See [APPLICATION_PRESETS.md](APPLICATION_PRESETS.md) for inspected sources,
+proposed categories and the distinction between product flow, installed layout,
+efficiency estimates and measured calibration. Preset values and UI details
+remain proposals; this note does not change any zone's settings.

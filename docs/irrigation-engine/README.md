@@ -9,6 +9,7 @@ Research and design an optional soil-depletion scheduling mode and watering-wind
 - [Dedicated test Pi setup](TEST_PI_SETUP.md) — environment and reproducible DEMO build
 - [UI development and scheduling mode](UI_DEVELOPMENT.md) — integrated UI source and test deployment
 - [Configuration-to-engine integration](ENGINE_INTEGRATION.md) — executable draft-to-plan path, field mappings and runtime gaps
+- [Application-rate presets](APPLICATION_PRESETS.md) — direct entry, equipment types and university/manufacturer sources
 
 The [offline reference model](../../tools/irrigation_replay/README.md) now accepts
 the actual browser draft format and explicit runtime snapshots. Multi-window
