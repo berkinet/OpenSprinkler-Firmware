@@ -101,6 +101,19 @@ describe("Program Sensor Adjustment Checks", function () {
 		OSApp.currentSession.controller = controller;
 	});
 
+	it("keeps Standard repeat intervals using the shared picker in seconds with minute precision", function () {
+		var picker = sandbox.stub(OSApp.UIDom, "showDurationBox");
+		var page = OSApp.Programs.makeProgram21(0, true);
+		var button = page.find("#interval-new");
+		button.val(120).trigger("click");
+		assert.equal(picker.lastCall.args[0].seconds, 120);
+		assert.equal(picker.lastCall.args[0].granularity, 1);
+		assert.equal(picker.lastCall.args[0].maximum, 86340);
+		assert.equal(picker.lastCall.args[0].title, "Repeat Every");
+		picker.lastCall.args[0].callback(180);
+		assert.equal(button.val(), "180");
+		assert.equal(button.text(), "3m");
+	});
 	it("copies the source program sensor adjustment into the new-program form", function () {
 		OSApp.currentSession.controller.programs.pd[0][7].flag = 5;
 		var page = OSApp.Programs.makeProgram21(0, true);

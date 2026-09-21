@@ -91,3 +91,10 @@ gating, busy-mode-change rejection, a dedicated program editor and shared
 settings draft. New forms save only browser-local drafts; mode 1 currently
 generates no automatic irrigation. This storage choice is an interim prototype
 implementation, not a decision to make the finished controller browser-dependent.
+
+## Shared controls across scheduling modes
+
+The owner requested reuse of Standard program-editor code wherever behavior
+is shared, including timing controls. Name, enable and duration controls now
+share implementation. Mode-specific scheduling semantics and persistence stay
+separate; Standard repeat intervals are not reinterpreted as OFF-time soak.

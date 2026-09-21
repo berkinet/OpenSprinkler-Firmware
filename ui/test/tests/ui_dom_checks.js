@@ -18,6 +18,20 @@ describe("UI DOM Checks", function () {
 		OSApp.UIDom.bindPanel();
 	} );
 
+	it("treats 65535 seconds as a literal duration unless solar durations are enabled", function () {
+		var open = sinon.stub(OSApp.UIDom, "openPopup").callsFake(popup => popup.appendTo($.mobile.pageContainer).popup()), result;
+		try {
+			OSApp.UIDom.showDurationBox({seconds: 65535, showSun: false, preventCompression: true, callback: value => { result = value; }});
+			var popup = open.lastCall.args[0];
+			popup.find("button.submit").trigger("click");
+			assert.equal(result, 65535);
+			OSApp.UIDom.showDurationBox({seconds: 65535, showSun: true, callback: value => { result = value; }});
+			popup = open.lastCall.args[0];
+			assert.isTrue(popup.find(".set").hasClass("ui-btn-active"));
+			popup.find("button.submit").trigger("click");
+			assert.equal(result, 65535);
+		} finally { open.restore(); $("#durationBox").remove(); }
+	});
 	it( "Exposes OS3 and OS4 firmware updates only through configured direct URLs", function() {
 		var session = OSApp.currentSession,
 			originalOptions = session.controller.options,

@@ -1552,6 +1552,21 @@ OSApp.UIDom.showSingleDurationInput = function( opt ) {
 	OSApp.UIDom.openPopup( popup );
 };
 
+// Shared duration-button behavior. Values are seconds in both editors.
+OSApp.UIDom.bindDurationButton = function( buttons, options ) {
+	return $( buttons ).off( "click.durationInput" ).on( "click.durationInput", function() {
+		var button = $( this ), settings = $.extend( {}, options ), callback = settings.callback;
+		settings.seconds = button.val() === "" ? 0 : Number( button.val() );
+		settings.title = settings.title || OSApp.Language._( "Duration" );
+		settings.callback = function( seconds ) {
+			button.val( seconds ).text( OSApp.Dates.dhms2str( OSApp.Dates.sec2dhms( seconds ) ) ).trigger( "change" );
+			if ( callback ) { callback( seconds ); }
+		};
+		OSApp.UIDom.showDurationBox( settings );
+		return false;
+	} );
+};
+
 OSApp.UIDom.showDurationBox = function( opt ) {
 	var defaults = {
 			seconds: 0,
@@ -1574,10 +1589,10 @@ OSApp.UIDom.showDurationBox = function( opt ) {
 
 	opt.seconds = parseInt( opt.seconds );
 
-	if ( opt.seconds === 65535 ) {
+	if ( opt.showSun && opt.seconds === 65535 ) {
 		type = 1;
 		opt.seconds = 0;
-	} else if ( opt.seconds === 65534 ) {
+	} else if ( opt.showSun && opt.seconds === 65534 ) {
 		type = 2;
 		opt.seconds = 0;
 	}

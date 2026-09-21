@@ -28,7 +28,7 @@ describe("Soil-water program drafts", function () {
 	});
 	it("saves and reopens one draft per valve without a controller program write", function () {
 		OSApp.SoilPrograms.editPage();
-		$("#soil-cycle, #soil-soak").val("1").trigger("input");
+		$("#soil-cycle, #soil-soak").val("60").trigger("input");
 		assert.include($("#addprogram").text(), "Elapsed: 9 min");
 		header.rightBtn.on();
 		var draft = OSApp.SoilPrograms.load().programs[0];
@@ -40,7 +40,39 @@ describe("Soil-water program drafts", function () {
 		assert.equal($("#soil-zone").val(), "1");
 		OSApp.SoilPrograms.editPage(0);
 		assert.equal($("#soil-zone").val(), "0");
-		assert.equal($("#soil-cycle").val(), "1");
+		assert.equal($("#soil-cycle").val(), "60");
+	});
+	it("uses the existing duration picker and converts its seconds to draft minutes", function () {
+		var picker = sandbox.stub(OSApp.UIDom, "showDurationBox");
+		OSApp.SoilPrograms.editPage();
+		$("#soil-cycle").trigger("click");
+		assert.equal(picker.lastCall.args[0].title, "Maximum ON per cycle");
+		assert.isFalse(picker.lastCall.args[0].showSun);
+		assert.equal($("#soil-cycle").val(), ""); // Opening/cancelling doesn't set a value.
+		picker.lastCall.args[0].callback(30);
+		$("#soil-soak").trigger("click");
+		picker.lastCall.args[0].callback(60);
+		assert.equal($("#soil-cycle").text(), "30s");
+		assert.include($("#addprogram").text(), "Elapsed: 14 min");
+		header.rightBtn.on();
+		assert.equal(OSApp.SoilPrograms.load().programs[0].cycle, 0.5);
+		assert.equal(OSApp.SoilPrograms.load().programs[0].soak, 1);
+	});
+	it("reopens existing minute-based drafts with the shared name and enable controls", function () {
+		var data = OSApp.SoilPrograms.load();
+		data.programs = [{sid: 0, name: '<img src=x onerror="bad()">', enabled: false, group: "Normal", cycle: 1, soak: 0, minimum: 0.5}];
+		OSApp.SoilPrograms.save(data);
+		OSApp.SoilPrograms.editPage(0);
+		assert.equal($("#soil-cycle").val(), "60");
+		assert.equal($("#soil-soak").text(), "0s");
+		assert.equal($("#soil-minimum").val(), "30");
+		assert.equal($("#soil-enabled").attr("type"), "checkbox");
+		assert.isFalse($("#soil-enabled").prop("checked"));
+		assert.lengthOf($("#addprogram img"), 0);
+		assert.equal($("#soil-name").val(), data.programs[0].name);
+		header.rightBtn.on();
+		assert.isFalse(OSApp.SoilPrograms.load().programs[0].enabled);
+		assert.equal(OSApp.SoilPrograms.load().programs[0].soak, 0);
 	});
 	it("isolates drafts between controllers", function () {
 		var data = OSApp.SoilPrograms.load(); data.groups = ["A garden"];
@@ -56,7 +88,7 @@ describe("Soil-water program drafts", function () {
 	});
 	it("does not accept a minimum pulse larger than the cycle", function () {
 		OSApp.SoilPrograms.editPage();
-		$("#soil-cycle").val(1); $("#soil-minimum").val(2);
+		$("#soil-cycle").val(60); $("#soil-minimum").val(120);
 		header.rightBtn.on();
 		assert.equal(OSApp.SoilPrograms.load().programs.length, 0);
 		assert.include(OSApp.Errors.showError.lastCall.args[0], "cannot exceed");

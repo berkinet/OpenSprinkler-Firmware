@@ -200,3 +200,33 @@ Standard program remaining inactive in mode 1, that same program running after
 returning to Standard, and atomic rejection of a mode change while watering was
 queued. Its synthetic program was removed and both simulated valves were OFF
 at completion. Results: `scheduling-ui/soil-mode-checks.txt` in the build records.
+
+## Shared program controls
+
+Owner direction: reuse the Standard editor’s code wherever functionality is
+the same, rather than maintaining parallel controls for soil-water mode.
+
+- Both editors use `Programs.makeNameField` and `makeEnabledField`. Soil-water
+  Enabled is now the same checkbox as Standard, rather than a separate select.
+- Soil-water cycle, soak, minimum useful pulse and example ON duration use the
+  existing `UIDom.showDurationBox` and `Dates` formatting. A common
+  `bindDurationButton` also handles Standard’s Repeat Every control. Standard
+  keeps its minute precision and existing interval bound; soil durations allow
+  seconds and do not offer sunrise/sunset duration substitutions.
+- Existing v1 browser drafts remain in minutes. The UI converts to/from seconds
+  at the control boundary, retaining blank (uncalibrated) versus zero soak.
+- The shared picker interprets solar-duration sentinels only when its solar
+  choices are enabled; otherwise those numbers represent literal seconds.
+
+Inspected distinction: this upstream revision has repeated program starts,
+not a standalone cycle-and-soak form component. Repeat Every measures the
+interval between starts; minimum soak measures OFF time after a pulse. Reuse
+of duration controls does not equate those two scheduling semantics. The
+new mode’s depletion accounting and pulse planning remain separate.
+
+Validation for this refactor: 391 browser tests passed; changed modules passed
+ESLint and the UI package built successfully. On ospi-dev, the existing draft
+opened with one-minute cycle and soak. The shared picker’s 30-second selection
+updated the preview to ten pulses and fourteen elapsed minutes. Reopening the
+unsaved draft restored its original five pulses / nine minutes. No controller
+scheduling settings, programs or valve commands changed during this UI check.

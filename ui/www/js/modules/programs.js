@@ -2095,6 +2095,21 @@ OSApp.Programs.makeAllPrograms = function() {
 	return list + "</div>";
 };
 
+// Identity controls shared by Standard and soil-water program editors.
+OSApp.Programs.makeNameField = function( id, value, placeholder, maxlength ) {
+	var holder = $( "<div></div>" );
+	$( "<label></label>" ).attr( "for", id ).text( OSApp.Language._( "Program Name" ) ).appendTo( holder );
+	$( "<input data-mini='true' type='text'>" ).attr( { id: id, name: id, maxlength: maxlength, placeholder: placeholder || "" } )
+		.attr( "value", value || "" ).appendTo( holder );
+	return holder.html();
+};
+OSApp.Programs.makeEnabledField = function( id, enabled ) {
+	var label = $( "<label></label>" ).attr( "for", id ), input = $( "<input data-mini='true' type='checkbox'>" ).attr( { id: id, name: id } );
+	if ( enabled ) { input.attr( "checked", "checked" ); }
+	label.append( input, document.createTextNode( OSApp.Language._( "Enabled" ) ) );
+	return label[ 0 ].outerHTML;
+};
+
 OSApp.Programs.makeProgram = function( n, isCopy ) {
 	if ( OSApp.Firmware.checkOSVersion( 210 ) ) {
 		return OSApp.Programs.makeProgram21( n, isCopy );
@@ -2131,7 +2146,7 @@ OSApp.Programs.makeProgram183 = function( n, isCopy ) {
 			setStations[ i ] = setStations[ i ] | 0;
 		}
 	}
-	list += "<label for='en-" + id + "'><input data-mini='true' type='checkbox' " + ( ( program.en || n === "new" ) ? "checked='checked'" : "" ) + " name='en-" + id + "' id='en-" + id + "'>" + OSApp.Language._( "Enabled" ) + "</label>";
+	list += OSApp.Programs.makeEnabledField( "en-" + id, program.en || n === "new" );
 	list += "<fieldset data-role='controlgroup' data-type='horizontal' class='center'>";
 	list += "<input data-mini='true' type='radio' name='rad_days-" + id + "' id='days_week-" + id + "' " +
 			"value='days_week-" + id + "' " + ( ( program.type === OSApp.Constants.options.PROGRAM_TYPE_INTERVAL ) ? "" : "checked='checked'" ) + ">" +
@@ -2318,14 +2333,9 @@ OSApp.Programs.makeProgram21 = function( n, isCopy ) {
 	list += "<div class='ui-bar ui-bar-a'><h3>" + OSApp.Language._( "Basic Settings" ) + "</h3></div>";
 	list += "<div class='ui-body ui-body-a center'>";
 
-	// Program name
-	list += "<label for='name-" + id + "'>" + OSApp.Language._( "Program Name" ) + "</label>" +
-		"<input data-mini='true' type='text' name='name-" + id + "' id='name-" + id + "' maxlength='" + OSApp.currentSession.controller.programs.pnsize + "' " +
-		"placeholder='" + OSApp.Language._( "Program" ) + " " + ( OSApp.currentSession.controller.programs.pd.length + 1 ) + "' value=\"" + escapedProgramName + "\">";
-
-	// Program enable/disable flag
-	list += "<label for='en-" + id + "'><input data-mini='true' type='checkbox' " +
-		( ( program.en || n === "new" ) ? "checked='checked'" : "" ) + " name='en-" + id + "' id='en-" + id + "'>" + OSApp.Language._( "Enabled" ) + "</label>";
+	list += OSApp.Programs.makeNameField( "name-" + id, program.name,
+		OSApp.Language._( "Program" ) + " " + ( OSApp.currentSession.controller.programs.pd.length + 1 ), OSApp.currentSession.controller.programs.pnsize );
+	list += OSApp.Programs.makeEnabledField( "en-" + id, program.en || n === "new" );
 
 	if ( OSApp.Supported.dateRange() ) {
 		var from = OSApp.Dates.getDateRangeStart( n ),
@@ -2811,22 +2821,12 @@ OSApp.Programs.makeProgram21 = function( n, isCopy ) {
         renderSplitRows();
 	}
 
-	// Handle interval duration input
-	page.find( "[id^='interval-']" ).on( "click", function() {
-		var dur = $( this ),
-			name = page.find( "label[for='" + dur.attr( "id" ) + "']" ).text();
-
-		OSApp.UIDom.showDurationBox( {
-			seconds: dur.val(),
-			title: name,
-			callback: function( result ) {
-				dur.val( result );
-				dur.text( OSApp.Dates.dhms2str( OSApp.Dates.sec2dhms( result ) ) );
-			},
-			maximum: 86340,
-			granularity: 1,
-			preventCompression: true
-		} );
+	// Reuse the same duration-button behavior as the soil-water editor.
+	OSApp.UIDom.bindDurationButton( page.find( "[id^='interval-']" ), {
+		title: OSApp.Language._( "Repeat Every" ),
+		maximum: 86340,
+		granularity: 1,
+		preventCompression: true
 	} );
 
 	page.find( ".timefield" ).on( "click", function() {

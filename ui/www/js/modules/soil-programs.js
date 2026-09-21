@@ -69,6 +69,19 @@ OSApp.SoilPrograms.field = function( parent, id, label, value, type, hint ) {
 	if ( hint ) { $( "<p class='small'></p>" ).text( hint ).appendTo( row ); }
 	return input;
 };
+// Keep the v1 draft schema in minutes; shared UI controls use seconds.
+OSApp.SoilPrograms.durationField = function( parent, id, label, minutes ) {
+	var row = $( "<div class='ui-field-contain duration-input'></div>" ).appendTo( parent ),
+		seconds = minutes === "" || minutes === undefined ? "" : Math.round( minutes * 60 );
+	$( "<label></label>" ).attr( "for", id ).text( label ).appendTo( row );
+	var button = $( "<button type='button' data-mini='true' class='pad_buttons'></button>" ).attr( "id", id ).val( seconds )
+		.text( seconds === "" ? OSApp.Language._( "Not set" ) : OSApp.Dates.dhms2str( OSApp.Dates.sec2dhms( seconds ) ) ).appendTo( row );
+	OSApp.UIDom.bindDurationButton( button, { title: label, preventCompression: true, showSun: false } );
+	return button;
+};
+OSApp.SoilPrograms.durationMinutes = function( button ) {
+	return button.val() === "" ? "" : Number( button.val() ) / 60;
+};
 OSApp.SoilPrograms.select = function( parent, id, label, items, value ) {
 	var row = $( "<div class='ui-field-contain'></div>" ).appendTo( parent );
 	$( "<label></label>" ).attr( "for", id ).text( label ).appendTo( row );
@@ -110,9 +123,9 @@ OSApp.SoilPrograms.editPage = function( sid ) {
 			return OSApp.Errors.showError( "This valve already has a soil-water program." );
 		}
 		if ( !fields.name.val().trim() ) { return OSApp.Errors.showError( "Enter a program name." ); }
-		var result = { sid: chosen, name: fields.name.val().trim(), profile: "garden", group: fields.group.val(), enabled: fields.enabled.val() === "yes" };
+		var result = { sid: chosen, name: fields.name.val().trim(), profile: "garden", group: fields.group.val(), enabled: fields.enabled.prop( "checked" ) };
 		for ( var key of [ "rate", "efficiency", "cycle", "soak", "minimum" ] ) {
-			var raw = fields[ key ].val(), number = Number( raw );
+			var raw = [ "cycle", "soak", "minimum" ].includes( key ) ? OSApp.SoilPrograms.durationMinutes( fields[ key ] ) : fields[ key ].val(), number = Number( raw );
 			if ( raw === "" ) { result[ key ] = ""; continue; }
 			if ( !Number.isFinite( number ) || number < 0 || ( key !== "soak" && number === 0 ) || ( key === "efficiency" && number > 100 ) ) {
 				return OSApp.Errors.showError( "Enter positive values; efficiency must be 1\u2013100%. Soak may be zero." );
@@ -136,20 +149,28 @@ OSApp.SoilPrograms.editPage = function( sid ) {
 	if ( !zones.length ) { body.append( $( "<p></p>" ).text( "Every available valve already has a program, or no individual valves are enabled. Enable a valve in station settings or edit an existing draft." ) ); return; }
 	body.append( "<h2>Valve & priority</h2>" );
 	fields.zone = OSApp.SoilPrograms.select( body, "soil-zone", "Zone / valve", zones.map( function( z ) { return { value: z.sid, label: z.name }; } ), program.sid );
-	fields.name = OSApp.SoilPrograms.field( body, "soil-name", "Program name", program.name || zones[ 0 ].name );
-	fields.enabled = OSApp.SoilPrograms.select( body, "soil-enabled", "Program", [ { value: "yes", label: "Enabled" }, { value: "no", label: "Disabled" } ], program.enabled ? "yes" : "no" );
+	body.append( OSApp.Programs.makeNameField( "soil-name", program.name || zones[ 0 ].name ),
+		OSApp.Programs.makeEnabledField( "soil-enabled", program.enabled ) );
+	fields.name = body.find( "#soil-name" );
+	fields.enabled = body.find( "#soil-enabled" );
 	OSApp.SoilPrograms.select( body, "soil-profile", "Site profile", [ { value: "garden", label: "Garden (shared)" } ], "garden" );
 	fields.group = OSApp.SoilPrograms.select( body, "soil-group", "Priority group", data.groups.map( function( g ) { return { value: g, label: g }; } ), program.group );
 	body.append( "<h2>Application calibration</h2><p class='small'>Leave unknown values blank while reviewing the form. These must be calibrated before scheduling can be enabled.</p>" );
 	fields.rate = OSApp.SoilPrograms.field( body, "soil-rate", "Application rate (mm/hour)", program.rate, "number" );
 	fields.efficiency = OSApp.SoilPrograms.field( body, "soil-efficiency", "Application efficiency (%)", program.efficiency, "number" );
 	body.append( "<h2>Cycle & soak</h2><p class='small'>Split a watering event into short pulses. Other valves may run during a soak interval.</p>" );
-	fields.cycle = OSApp.SoilPrograms.field( body, "soil-cycle", "Maximum ON per cycle (minutes)", program.cycle, "number" );
-	fields.soak = OSApp.SoilPrograms.field( body, "soil-soak", "Minimum soak between cycles (minutes)", program.soak, "number" );
-	fields.minimum = OSApp.SoilPrograms.field( body, "soil-minimum", "Minimum useful pulse (minutes)", program.minimum, "number" );
+	fields.cycle = OSApp.SoilPrograms.durationField( body, "soil-cycle", "Maximum ON per cycle", program.cycle );
+	fields.soak = OSApp.SoilPrograms.durationField( body, "soil-soak", "Minimum soak between cycles", program.soak );
+	fields.minimum = OSApp.SoilPrograms.durationField( body, "soil-minimum", "Minimum useful pulse", program.minimum );
 	body.append( "<h3>Timing preview</h3><p class='small'>Illustration only: the engine will calculate the watering amount from depletion. This is not a scheduled runtime.</p>" );
-	var total = OSApp.SoilPrograms.field( body, "soil-example", "Example total ON time (minutes)", 5, "number" ), summary = $( "<p aria-live='polite'></p>" ).appendTo( body );
-	function update() { summary.text( OSApp.SoilPrograms.pulseSummary( Number( total.val() ), Number( fields.cycle.val() ), Number( fields.soak.val() ) ) ); }
+	var total = OSApp.SoilPrograms.durationField( body, "soil-example", "Example total ON time", 5 ), summary = $( "<p aria-live='polite'></p>" ).appendTo( body );
+	function update() {
+		var values = [ total, fields.cycle, fields.soak ].map( function( button ) {
+			var minutes = OSApp.SoilPrograms.durationMinutes( button );
+			return minutes === "" ? NaN : minutes;
+		} );
+		summary.text( OSApp.SoilPrograms.pulseSummary.apply( null, values ) );
+	}
 	page.on( "input change", "#soil-example, #soil-cycle, #soil-soak", update );
 	update();
 	body.append( $( "<button class='ui-btn ui-btn-b'>Save draft</button>" ).on( "click", save ) );
