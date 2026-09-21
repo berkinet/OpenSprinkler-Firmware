@@ -252,10 +252,8 @@ OSApp.SoilPrograms.previewPage = function() {
 		$( "<p></p>" ).text( "No automatic plan is available yet. Standard programs are retained and will resume when you select Standard scheduling." ),
 		$( "<a href='#programs' class='ui-btn'>Edit soil-water programs</a>" ),
 		$( "<p></p>" ).text( "Export your saved draft to evaluate it with the offline engine. Unsaved form edits are not included." ),
-		$( "<a href='#' id='export-soil-draft' class='ui-btn' data-ajax='false' download='soil-water-draft.json'>Export saved draft</a>" ).on( "click", function( event ) {
-			try {
-				$( this ).attr( "href", "data:application/json;charset=utf-8," + encodeURIComponent( OSApp.SoilPrograms.exportDraft() ) );
-			} catch ( e ) { event.preventDefault(); OSApp.Errors.showError( e.message ); }
+		$( "<button type='button' id='export-soil-draft' class='ui-btn'>Export saved draft</button>" ).on( "click", function() {
+			try { OSApp.SoilPrograms.showDraftExport(); } catch ( e ) { OSApp.Errors.showError( e.message ); }
 		} )
 	);
 };
@@ -263,4 +261,14 @@ OSApp.SoilPrograms.previewPage = function() {
 // Export only the separate draft; never include controller credentials/config.
 OSApp.SoilPrograms.exportDraft = function() {
 	return JSON.stringify( OSApp.SoilPrograms.load(), null, 2 );
+};
+
+OSApp.SoilPrograms.showDraftExport = function() {
+	var json = OSApp.SoilPrograms.exportDraft(), width = $.mobile.window.width(),
+		popup = $( "<div data-role='popup' data-theme='a' id='soil-draft-export'><div class='ui-bar ui-bar-a'>Export saved draft</div><div class='ui-content'><p>Download the file, or copy this JSON into a local file for the offline engine.</p><label for='soil-draft-json'>Saved draft JSON</label><textarea id='soil-draft-json' class='textarea' rows='10' data-autogrow='false' readonly spellcheck='false'></textarea><a class='ui-btn' id='download-soil-draft' data-ajax='false' download='soil-water-draft.json'>Download file</a><button type='button' data-mini='true'>Close</button></div></div>" );
+	popup.find( "textarea" ).val( json ).on( "focus", function() { this.select(); } );
+	popup.find( "#download-soil-draft" ).attr( "href", "data:application/json;charset=utf-8," + encodeURIComponent( json ) );
+	popup.find( "button" ).on( "click", function() { popup.popup( "close" ); } );
+	popup.css( "width", width > 600 ? width * 0.6 + "px" : "100%" );
+	OSApp.UIDom.openPopup( popup );
 };

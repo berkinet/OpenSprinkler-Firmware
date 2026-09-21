@@ -13,7 +13,10 @@ local calendar resolution → explicit reconciled state and dated ETo projection
 → priority allocation and pulse packing → a JSON plan with reasons.
 
 The Programs preview page now offers **Export saved draft**. It exports only
-the separate soil-water draft, including uncalibrated blanks. It does not
+the separate soil-water draft, including uncalibrated blanks. The standard OS
+popup offers a file download and selectable JSON for browsers that do not
+support downloads (the in-app browser did not confirm a download in review).
+It does not
 export controller credentials or station connection settings. Unsaved edits
 are not included. The browser test suite creates the shared synthetic fixture
 through the real forms and checks that the exported document matches exactly;

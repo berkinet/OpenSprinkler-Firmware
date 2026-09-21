@@ -21,7 +21,7 @@ describe("Soil-water program drafts", function () {
 		sandbox.stub(OSApp.Firmware, "sendToOS");
 	});
 	afterEach(function () {
-		$("#programs, #addprogram, #soil-settings, #priority-groups, #preview").remove();
+		$("#programs, #addprogram, #soil-settings, #priority-groups, #preview, #soil-draft-export").remove();
 		OSApp.currentSession.controller = oldController;
 		OSApp.currentSession.ip = oldIP;
 		sandbox.restore();
@@ -230,8 +230,13 @@ describe("Soil-water program drafts", function () {
 		OSApp.SoilPrograms.editPage(0); $("#soil-name").val("Unsaved name");
 		assert.deepEqual(JSON.parse(OSApp.SoilPrograms.exportDraft()), saved);
 		assert.strictEqual(JSON.parse(OSApp.SoilPrograms.exportDraft()).programs[0].rate, "");
+		sandbox.stub(OSApp.UIDom, "openPopup").callsFake(popup => $("body").append(popup));
 		OSApp.SoilPrograms.previewPage();
-		assert.equal($("#export-soil-draft").attr("download"), "soil-water-draft.json");
+		$("#export-soil-draft").trigger("click");
+		assert.equal($("#download-soil-draft").attr("download"), "soil-water-draft.json");
+		assert.isTrue($("#soil-draft-json").prop("readonly"));
+		assert.deepEqual(JSON.parse($("#soil-draft-json").val()), saved);
+		assert.deepEqual(JSON.parse(decodeURIComponent($("#download-soil-draft").attr("href").split(",")[1])), saved);
 		assert.isFalse(OSApp.Firmware.sendToOS.called);
 	});
 });
