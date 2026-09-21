@@ -37,8 +37,8 @@ OSApp.About.displayPage = function() {
 					<li>
 						<p>
 							${OSApp.Language._("This is open source software: source code and changelog for this application can be found at")}
-							<a class="iab squeeze" target="_blank" href="https://github.com/OpenSprinkler/OpenSprinkler-App/">
-								https://github.com/OpenSprinkler/OpenSprinkler-App/
+							<a class="iab squeeze" target="_blank" href="https://github.com/berkinet/OpenSprinkler-Firmware/tree/master/ui">
+								https://github.com/berkinet/OpenSprinkler-Firmware/tree/master/ui
 							</a>
 						</p>
 						<p>

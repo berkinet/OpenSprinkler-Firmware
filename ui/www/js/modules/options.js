@@ -146,6 +146,9 @@ OSApp.Options.showOptions = function( expandItem ) {
 
 				// FIXME: please refactor these values to constants
 				switch ( id ) {
+					case "smode":
+						opt.smode = data;
+						return true;
 					case "o1":
 						var tz = data.split( ":" );
 						tz[ 0 ] = parseInt( tz[ 0 ], 10 );
@@ -643,6 +646,20 @@ OSApp.Options.showOptions = function( expandItem ) {
 					   "<input data-mini='true' id='o36' type='checkbox' " + ( ( OSApp.currentSession.controller.options.lg === 1 ) ? "checked='checked'" : "" ) + ">";
                }
        list += "</div>";
+
+	if ( typeof OSApp.currentSession.controller.options.smode !== "undefined" ) {
+		list += "</fieldset><fieldset id='scheduling-options' data-role='collapsible'" +
+			( expandItem === "scheduling" ? " data-collapsed='false'" : "" ) + ">" +
+			"<legend>" + OSApp.Language._( "Scheduling" ) + "</legend>" +
+			"<div class='ui-field-contain'><label for='smode'>" + OSApp.Language._( "Scheduling mode" ) + "</label>" +
+			"<select data-mini='true' id='smode' aria-describedby='scheduling-description'>" +
+			"<option value='0' selected>" + OSApp.Language._( "Standard" ) + "</option>" +
+			"<option value='1' disabled>" + OSApp.Language._( "Soil water balance (not yet available)" ) + "</option>" +
+			"</select></div>" +
+			"<p id='scheduling-description' class='small'>" +
+			OSApp.Language._( "Standard uses your OpenSprinkler programs. Soil water balance will schedule watering from soil depletion, watering windows and zone priorities. It is not yet available." ) +
+			"</p>";
+	}
 
        list += "</fieldset><fieldset data-role='collapsible'" +
                ( typeof expandItem === "string" && expandItem === "app" ? " data-collapsed='false'" : "" ) + ">" +

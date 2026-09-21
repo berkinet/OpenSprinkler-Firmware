@@ -4,6 +4,7 @@ const path = require('path');
 
 module.exports = function (config) {
 	config.set({
+		plugins: [require('karma-mocha'), require('karma-chai'), require('karma-chrome-launcher')],
 		frameworks: ['mocha', 'chai'],
 		basePath: '../',
 		files: [

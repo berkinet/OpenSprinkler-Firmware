@@ -1,5 +1,9 @@
 # Dedicated test Pi — 21 September 2026
 
+For the subsequently installed Scheduling section and locally hosted UI, see
+[UI development and deployment](UI_DEVELOPMENT.md). The build baseline below
+records the earlier unmodified DEMO build.
+
 The owner authorized installing dependencies, cloning the fork and building on a
 new, dedicated Raspberry Pi 3B+ named `OSPI-Dev` (`192.168.5.244`, user `codex`).
 This development-machine authorization does not change the read-only boundary

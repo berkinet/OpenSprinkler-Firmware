@@ -320,6 +320,7 @@ enum {
 	IOPT_SENSOR4_OPTION,
 	IOPT_SENSOR4_ON_DELAY,
 	IOPT_SENSOR4_OFF_DELAY,
+	IOPT_SCHEDULING_MODE, // append only: preserve existing iopts.dat offsets
 	NUM_IOPTS // total number of integer options
 };
 

@@ -7,8 +7,9 @@ Research and design an optional soil-depletion scheduling mode and watering-wind
 - [Scheduling specification, draft 1](SCHEDULING_SPEC.md) — agreed policies, proposed defaults and integration boundaries
 - [Offline replay plan](REPLAY_PLAN.md) — acceptance scenarios and numerical examples
 - [Dedicated test Pi setup](TEST_PI_SETUP.md) — environment and reproducible DEMO build
+- [UI development and scheduling mode](UI_DEVELOPMENT.md) — integrated UI source and test deployment
 
-The [first offline reference model](../../tools/irrigation_replay/README.md) is implemented with synthetic fixtures and tests. Multi-window service-horizon planning remains to be built. Firmware and controller behavior are unchanged.
+The [first offline reference model](../../tools/irrigation_replay/README.md) is implemented with synthetic fixtures and tests. Multi-window service-horizon planning and firmware integration remain to be built. The controller-backed scheduling-mode selector is now installed on the test Pi, with only Standard enabled.
 
 ## Background and decisions
 
@@ -26,7 +27,7 @@ The historical notes originally required autonomous scheduling inside RainMachin
 - Firmware upstream: https://github.com/OpenSprinkler/OpenSprinkler-Firmware
 - Existing LinkTap bridge: https://github.com/berkinet/OpenSprinkler-LinkTap-Bridge
 - Existing Irrigation Monitor: https://github.com/berkinet/Indigo-Irrigation-Monitor-Plugin
-- Separate upstream UI (not yet forked): https://github.com/OpenSprinkler/OpenSprinkler-App
+- UI source imported into this repository: [ui/](../../ui/README.md), based on https://github.com/OpenSprinkler/OpenSprinkler-App
 
 Current phase: offline prototype and dedicated test Pi setup. Use different configurations of OS's existing HTTP zone type; do not introduce a new zone type. Begin with the OS ETo service and offline validation. Installation and builds on the new test Pi are authorized; production controller changes and file copying remain unauthorized.
 

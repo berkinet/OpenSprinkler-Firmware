@@ -1421,6 +1421,13 @@ void server_change_scripturl(OTF_PARAMS_DEF) {
 void server_change_options(OTF_PARAMS_DEF)
 {
 	if(!process_password(OTF_PARAMS)) return;
+	// Validate before changing any options: the unfinished engine must not be
+	// enabled through a direct API call, nor should a rejected request partly save.
+	uint8_t scheduling_mode_found = 0;
+	findKeyVal(FKV_SOURCE, tmp_buffer, TMP_BUFFER_SIZE, PSTR("smode"), true, &scheduling_mode_found);
+	if (scheduling_mode_found && strcmp(tmp_buffer, "0") != 0) {
+		handle_return(HTML_DATA_OUTOFBOUND);
+	}
 	// temporarily save some old options values
 	bool time_change = false;
 	bool weather_change = false;
