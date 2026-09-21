@@ -63,8 +63,65 @@ The binary is `/home/codex/OpenSprinkler-Firmware/OpenSprinkler`, with SHA-256
 The checkout was clean after compilation. No OpenSprinkler process or startup
 service was launched by this build task.
 
-The next stage is an isolated runtime configuration and local simulated HTTP
-valve receiver, followed by startup/API and timed-valve tests. DEMO avoids OSPi
-GPIO output but still supports real outbound HTTP requests: only simulated
-destinations should be configured for this stage. A successful build alone
-does not validate runtime behavior or physical valve operation.
+## Subsequent authorized startup and simulated valve configuration
+
+The owner subsequently requested startup and simulated valve testing. The DEMO
+server now runs as `codex`, using `/home/codex/opensprinkler-demo` for its data.
+Its transient systemd unit is `opensprinkler-demo.service`; it has only
+`CAP_NET_BIND_SERVICE` to bind the DEMO build's fixed port 80. The page is
+http://192.168.5.244/ and password checking is disabled at the owner's request.
+The `/jo` response reports firmware 221, minor 5 and DEMO hardware 255.
+
+The loopback-only [valve simulator](../../tools/valve_sim/README.md) runs as
+`codex` in transient unit `opensprinkler-valve-sim.service`, listening on
+`127.0.0.1:18080`. Stations 1 and 2 are `SIM LinkTap` and `SIM RainMachine`,
+configured as ordinary HTTP zones pointing to this receiver. Stations 3–8 are
+disabled; no scheduled programs or master stations are configured.
+
+Both units survive SSH disconnects but are not enabled to start after reboot.
+These commands recreate them after a reboot, from a shell on the test Pi:
+
+```sh
+sudo systemd-run --unit=opensprinkler-valve-sim --uid=codex \
+  --property=NoNewPrivileges=yes \
+  /usr/bin/python3 /home/codex/OpenSprinkler-Firmware/tools/valve_sim/receiver.py \
+  --log /home/codex/opensprinkler-demo/simulated-valves.jsonl
+
+sudo systemd-run --unit=opensprinkler-demo --uid=codex \
+  --property=WorkingDirectory=/home/codex/opensprinkler-demo \
+  --property=AmbientCapabilities=CAP_NET_BIND_SERVICE \
+  --property=CapabilityBoundingSet=CAP_NET_BIND_SERVICE \
+  --property=NoNewPrivileges=yes \
+  /home/codex/OpenSprinkler-Firmware/OpenSprinkler \
+  -d /home/codex/opensprinkler-demo
+```
+
+Inspect status using `systemctl status opensprinkler-demo opensprinkler-valve-sim`.
+Request logs are in the simulator's journal; command events append to
+`/home/codex/opensprinkler-demo/simulated-valves.jsonl`.
+
+DEMO avoids OSPi GPIO output but still supports real outbound HTTP requests:
+only simulated destinations should be configured for this stage. The standard
+firmware scheduler runs the timed commands; the new depletion planner is still
+an offline prototype, with test-driver sequencing for its cycle-and-soak plan.
+
+### Observed simulated-valve results
+
+The guarded exercise passed on 21 September 2026:
+
+- Both zones' four-second runs produced ON and OFF callbacks about 4.001 seconds
+  apart, with automatic queue completion.
+- Explicit stop ended each requested 20-second run after approximately 1.04 and
+  1.07 seconds respectively.
+- Zone A's five one-minute planner pulses were exercised at 20× speed on
+  `SIM LinkTap`: each requested three-second pulse measured 2.996–3.004 seconds.
+  All four soak intervals measured approximately four seconds, exceeding the
+  scaled three-second minimum. Dispatch overhead explains the longer gaps.
+- Both simulator states were OFF, station bits were clear and the queue was
+  empty at completion.
+
+The machine-readable report is
+`/home/codex/irrigation-build-records/75ab770/simulated-valve-test.json`.
+These results validate local HTTP command delivery and timed sequencing, not
+the real vendor bridges or exact watering-window execution. The original
+five-minute-ON/nine-minute-elapsed case remains an offline numerical test.
