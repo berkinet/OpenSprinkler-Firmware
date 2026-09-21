@@ -254,3 +254,14 @@ name schema remains compatible; controller persistence is still future work.
 Validation: 398 browser tests passed, covering conditional navigation, add and
 reorder, reference-preserving renames, removal restrictions, duplicate/blank
 names, stale group edits and preservation when shared settings are saved.
+
+## Deferred visual alignment with the existing OpenSprinkler UI
+
+Owner direction (21 September 2026): in a later UI pass, match the visual
+layout and design of the existing OpenSprinkler pages, particularly settings
+and program inputs. Apply this to the new scheduling forms and Priority Groups
+page. Reuse existing form markup, styling and shared controls wherever the
+functionality matches, including label/input alignment, spacing, grouping and
+button placement. This extends the shared-controls decision above to visual
+consistency. The current prototype layout is provisional; no visual changes
+are requested at this stage.
