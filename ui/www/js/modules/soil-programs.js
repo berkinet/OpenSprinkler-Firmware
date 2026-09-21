@@ -42,16 +42,19 @@ OSApp.SoilPrograms.pulseSummary = function( total, cycle, soak ) {
 		" min. Total ON: " + total + " min. Elapsed: " + Math.round( ( total + ( count - 1 ) * soak ) * 100 ) / 100 +
 		" min, including soak between pulses. No final soak.";
 };
-OSApp.SoilPrograms.page = function( id, title, back, save ) {
+OSApp.SoilPrograms.page = function( id, title, back, save, rightButton ) {
 	var page = $( "<div data-role='page'><main class='ui-content'></main></div>" ).attr( "id", id );
-	page.find( "main" ).css( { "max-width": "760px", margin: "0 auto" } ).append(
-		$( "<div role='note'></div>" ).css( { padding: "12px 16px", background: "#fff2d6", color: "#493714", "border-left": "4px solid #c3841c", "border-radius": "5px", "margin-bottom": "20px" } ).append(
-			$( "<strong></strong>" ).text( "Soil water balance \xb7 editor preview" ),
-			$( "<p></p>" ).css( "margin-bottom", 0 ).text( "Automatic watering is paused in this mode. Save draft stores these forms in this browser for this controller; the engine and controller storage are not connected yet." )
-		)
-	);
+	if ( id !== "programs" ) {
+		page.find( "main" ).css( { "max-width": "760px", margin: "0 auto" } ).append(
+			$( "<div role='note'></div>" ).css( { padding: "12px 16px", background: "#fff2d6", color: "#493714", "border-left": "4px solid #c3841c", "border-radius": "5px", "margin-bottom": "20px" } ).append(
+				$( "<strong></strong>" ).text( "Soil water balance \xb7 editor preview" ),
+				$( "<p></p>" ).css( "margin-bottom", 0 ).text( "Automatic watering is paused in this mode. Save draft stores these forms in this browser for this controller; the engine and controller storage are not connected yet." )
+			)
+		);
+	}
 	var header = { title: title, leftBtn: { icon: "carat-l", text: "Back", on: function() { OSApp.UIDom.changePage( back ); } } };
 	if ( save ) { header.rightBtn = { icon: "check", text: "Save draft", on: save }; }
+	if ( rightButton ) { header.rightBtn = rightButton; }
 	OSApp.UIDom.changeHeader( header );
 	page.one( "pagehide", function() { page.remove(); } );
 	$( "#" + id ).remove();
@@ -75,11 +78,18 @@ OSApp.SoilPrograms.select = function( parent, id, label, items, value ) {
 	return select;
 };
 OSApp.SoilPrograms.displayPage = function() {
-	var page = OSApp.SoilPrograms.page( "programs", "Soil-water programs", "#sprinklers" ), body = page.find( "main" ), data;
+	var page = OSApp.SoilPrograms.page( "programs", OSApp.Language._( "Programs" ), "#sprinklers", null, {
+		icon: "plus",
+		text: OSApp.Language._( "Add" ),
+		on: function() { OSApp.UIDom.changePage( "#addprogram" ); }
+	} ), body = page.find( "main" ), data;
 	try { data = OSApp.SoilPrograms.load(); } catch ( e ) { body.append( $( "<p></p>" ).text( e.message ) ); return; }
-	body.append( $( "<h2></h2>" ).text( "One program. One valve." ), $( "<p></p>" ).text( "Each valve has its own water balance, priority and cycle-and-soak settings. The engine will decide when it needs water within the shared watering windows." ) );
-	body.append( $( "<a href='#soil-settings' class='ui-btn ui-mini'></a>" ).text( "Shared windows, profile & priority groups" ) );
-	if ( !data.programs.length ) { body.append( $( "<p></p>" ).text( "No soil-water program drafts yet. Start by choosing a valve." ) ); }
+	if ( !data.programs.length ) {
+		body.append( $( "<p class='center'></p>" ).text( OSApp.Language._( "You have no programs currently added. Tap the Add button on the top right corner to get started." ) ) );
+	} else {
+		body.append( $( "<p class='center'></p>" ).text( OSApp.Language._( "Click any program below to edit. Be sure to save changes." ) ),
+			$( "<p class='center'></p>" ).text( OSApp.Language._( "Number of Programs" ) + ": " + data.programs.length ) );
+	}
 	data.programs.forEach( function( program ) {
 		var name = OSApp.currentSession.controller.stations.snames[ program.sid ] || "Unavailable valve";
 		var button = $( "<a href='#' class='ui-btn ui-corner-all'></a>" ).css( { "text-align": "left", "white-space": "normal" } ).text( program.name );
@@ -87,7 +97,6 @@ OSApp.SoilPrograms.displayPage = function() {
 		button.on( "click", function() { OSApp.UIDom.changePage( "#addprogram", { soilZone: program.sid } ); return false; } );
 		body.append( button );
 	} );
-	body.append( $( "<a href='#addprogram' class='ui-btn ui-btn-b ui-corner-all'></a>" ).text( "Add soil-water program" ) );
 };
 OSApp.SoilPrograms.editPage = function( sid ) {
 	var page, data, program, fields = {}, originalSid = sid;

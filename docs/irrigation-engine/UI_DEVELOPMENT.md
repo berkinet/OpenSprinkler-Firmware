@@ -49,13 +49,14 @@ program storage is separate and unchanged. The saved mode is global: the two
 automatic engines do not operate alongside each other.
 
 Edit Options → Scheduling selects the mode. Save options, then use Edit
-Programs → Add soil-water program. The form includes a name, one valve, enabled
-state, the sole Garden profile, a named priority group, application rate and
+Programs → Add (upper right). The initial Programs page uses Standard mode’s
+empty-list prompt and toolbar; Add opens the soil-water editor. The form includes
+a name, one valve, enabled state, the sole Garden profile, a named priority group, application rate and
 efficiency, maximum cycle, minimum soak and minimum useful pulse. A five-minute
 example with one-minute cycle and soak displays five pulses and nine elapsed
 minutes. This timing illustration does not prescribe a fixed scheduled dose.
 
-Shared settings are linked from Scheduling and the soil-water program list:
+Shared settings are linked from Edit Options → Scheduling:
 multiple weekly windows, overnight windows, excluded dates, ordered priority
 groups, configurable shortage reporting/promotion and the Garden soil profile.
 These describe draft inputs, not operational restriction enforcement. Promotion
