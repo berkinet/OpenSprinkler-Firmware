@@ -7,7 +7,7 @@ Research and design an optional soil-depletion scheduling mode and watering-wind
 - [Scheduling specification, draft 1](SCHEDULING_SPEC.md) — agreed policies, proposed defaults and integration boundaries
 - [Offline replay plan](REPLAY_PLAN.md) — acceptance scenarios and numerical examples
 
-These are design documents; the offline simulator and firmware changes have not been implemented.
+The [first offline reference model](../../tools/irrigation_replay/README.md) is implemented with synthetic fixtures and tests. Multi-window service-horizon planning remains to be built. Firmware and controller behavior are unchanged.
 
 ## Background and decisions
 

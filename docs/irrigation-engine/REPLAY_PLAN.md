@@ -1,6 +1,6 @@
 # Offline replay and acceptance plan — draft 1
 
-This describes the next implementation, not an existing simulator or passed test suite. It accompanies [SCHEDULING_SPEC.md](SCHEDULING_SPEC.md). Fixtures are synthetic and must never be sent to a controller.
+This is the full acceptance plan. The [first reference-model milestone](../../tools/irrigation_replay/README.md) was implemented on 21 September 2026; its README distinguishes passing checks from unimplemented matrix cases. It accompanies [SCHEDULING_SPEC.md](SCHEDULING_SPEC.md). Fixtures are synthetic and must never be sent to a controller.
 
 ## Harness boundary
 

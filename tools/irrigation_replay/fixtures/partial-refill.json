@@ -1,0 +1,12 @@
+{
+  "schema_version":1,
+  "profiles":[{"id":"garden","capacity_mm_per_m":100,"root_depth_m":0.3,"allowed_depletion":0.5}],
+  "groups":["normal"],
+  "zones":[{"id":"bed","station":1,"profile_id":"garden","group_id":"normal","application_mm_per_hour":30,"efficiency":0.8,"cycle_seconds":1800,"soak_seconds":0}],
+  "initial_depletion_mm":{"bed":12},
+  "observations":[],
+  "windows":[{"window":{"id":"restricted","start":0,"end":480},
+    "next_service":{"bed":86400},
+    "projections":{"bed":[{"start":0,"end":480,"eto_mm":0},{"start":480,"end":86400,"eto_mm":6}]}
+  }]
+}

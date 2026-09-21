@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "promotion_policy": "promote_next",
+  "profiles": [{"id":"garden", "capacity_mm_per_m":100, "root_depth_m":0.3, "allowed_depletion":0.5}],
+  "groups": ["important", "normal"],
+  "zones": [
+    {"id":"A", "station":1, "profile_id":"garden", "group_id":"important", "application_mm_per_hour":72, "efficiency":1, "cycle_seconds":60, "soak_seconds":60, "minimum_pulse_seconds":30},
+    {"id":"B", "station":2, "profile_id":"garden", "group_id":"normal", "application_mm_per_hour":72, "efficiency":1, "cycle_seconds":60, "soak_seconds":60, "minimum_pulse_seconds":30}
+  ],
+  "initial_depletion_mm":{"A":6,"B":6},
+  "observations": [],
+  "windows": [
+    {
+      "window":{"id":"morning", "start":0,"end":540},
+      "next_service":{"A":86400,"B":86400},
+      "next_eligible_window":{"A":"tomorrow","B":"tomorrow"},
+      "projections": {
+        "A":[{"start":0,"end":540,"eto_mm":0},{"start":540,"end":86400,"eto_mm":13.8}],
+        "B":[{"start":0,"end":540,"eto_mm":0},{"start":540,"end":86400,"eto_mm":13.8}]
+      }
+    }
+  ]
+}
