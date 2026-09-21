@@ -23,6 +23,43 @@ credited to the modeled root-zone balance. Do not substitute distribution
 uniformity directly or copy another controller's differently defined
 “efficiency” calculation without checking its meaning.
 
+## French and European sources
+
+Additional research requested by the owner, inspected 21 September 2026.
+French-market product documentation provides metric flow/pressure values;
+French agricultural research helps qualify efficiency assumptions. These are
+different kinds of evidence. A French-language product page does not establish
+that its manufacturer is French, or that its product is installed in this garden.
+
+| Source | Useful data | Limits and proposed use |
+| --- | --- | --- |
+| [Netafim France, Goutte à goutte enterré pour gazon](https://www.netafim.fr/contentassets/522e1449f2b643b1889cbe1e3093d65b/irrig-enterre-pj.pdf#page=3), PDF p. 3 | UNITECHLINE 16: 1.6 L/hour per emitter, 0.30 or 0.50 m emitter spacing, operating range 0.5–4 bar. | A metric dripline candidate. Installed lateral spacing remains an input. This brochure concerns buried turf irrigation; its installation advice is not a general prescription for garden beds. Values read from extracted PDF text; the web PDF screenshot service failed. |
+| [Claber, adjustable 360° micro-sprinkler 91249](https://www.claber.com/fr/prodotti/scheda/91249/Micro-asperseur-360-reglable) | Hydraulic table includes 46 L/hour and 4.5 m spray diameter at 1.5 bar. | Particularly useful for mini-sprinkler presets because it supplies pressure-dependent data. The device is adjustable; actual settings and overlap matter. Spray diameter alone does not establish uniform application over that disc. |
+| [Gardena France, strip micro-sprinkler 13319-20](https://www.gardena.com/fr/outils-jardin/arrosage/goutte-a-goutte/micro-asperseur-plate-bande/970629701.html) | 57 L/hour; described coverage extends 2.75 m in each direction, up to 0.6 m wide. | A specific French-market garden product. Confirm operating pressure from its documentation before finalizing a preset; this product page does not state it alongside the flow. Do not turn maximum coverage into a guaranteed uniform precipitation rate. |
+| [Gardena, French Micro-Drip flow reference](https://gardenaadministration.zendesk.com/hc/de/articles/360014042940-Quel-est-le-d%C3%A9bit-ou-la-consommation-d-eau-des-diff%C3%A9rents-composants-du-syst%C3%A8me-Micro-Drip), 28 May 2020 | Lists component flows at approximately 1.5 bar dynamic pressure. | Useful for identifying older installed equipment. Match exact references; do not transfer legacy specifications to newer products solely because their names are similar. |
+| [INRAE, COMIC’EAU project background](https://climae.hub.inrae.fr/rubriques-verticales2/nos-actions/projets-exploratoires/projet-exploratoire-comic-eau-2022-2024), updated 3 July 2023 | Reports mean application efficiency of 90% for buried drip irrigation. | Context is Mediterranean field agriculture with lines buried 30–40 cm. This is background cited by a project description, not a measured result from our garden or a generic rating for surface drip, porous hose or micro-sprays. |
+| [INRAE, PReSTI irrigation platform](https://www.inrae.fr/actualites/plateforme-optimiser-lirrigation-prise-deau-jusqua-plante), 6 November 2019 | Investigates uniformity, clogging and irrigation losses; explains that poorly managed drip can lose more water than well-managed sprinklers. | Supports keeping efficiency assumptions editable and separate from equipment flow ratings. |
+
+Derived example using the Netafim emitter rating: a 0.30 m emitter spacing and
+an assumed 0.50 m lateral spacing give `1.6 / (0.30 × 0.50) = 10.67 mm/hour`
+gross. The lateral spacing here is an illustrative input, not a manufacturer
+recommendation or a selected garden setting.
+
+Catalog quality checks should retain exact product reference, source/version,
+pressure or compensation range, and adjustment assumptions. For example,
+[Gardena's French 1362-20 dripline page](https://www.gardena.com/fr/outils-jardin/arrosage/goutte-a-goutte/extension-de-tuyau-a-goutteurs-integres-de-surface/900910701.html)
+contains conflicting 1.5 and 1.6 L/hour figures. Resolve that against the exact
+product's manual or manufacturer before adding it as a trusted preset.
+
+Proposed direction: prioritize metric French-market equipment data for the
+initial catalog, while keeping the generic equipment families below. The
+sources inspected do not establish one authoritative French efficiency table
+covering all these household products. The provisional 85%/80% choices below
+remain explicitly identified estimates; this research does not replace them
+with 90%. Water-saving percentages and distribution-uniformity claims must
+not be copied into the application-efficiency field. No UI, engine or valve
+configuration is changed by this research.
+
 ## Proposed controls
 
 Keep the existing rate and efficiency fields visible and editable. Add a
