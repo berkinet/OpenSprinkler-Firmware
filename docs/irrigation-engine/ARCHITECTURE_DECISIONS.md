@@ -78,3 +78,16 @@ The owner agreed to one valve per zone, profile selection with one shared initia
 The owner also selected extending the existing Indigo LinkTap bridge with an RM adapter. Both command paths therefore depend on Indigo; OS owns scheduling. The bridge project's decision note is at https://github.com/berkinet/OpenSprinkler-LinkTap-Bridge/blob/main/docs/RAINMACHINE-ADAPTER-DECISION.md . This supersedes the earlier suggestion to choose a separate RM bridge host.
 
 See [SCHEDULING_SPEC.md](SCHEDULING_SPEC.md) and [REPLAY_PLAN.md](REPLAY_PLAN.md) for the consolidated design and explicit distinctions between agreements and proposed behavior.
+
+## 21 September 2026 — program editor and selectable preview
+
+Owner decision: initially, one soil-water program = one zone = one individual
+valve. Select the program editor through the global scheduling mode. Both
+modes must be selectable even before the new engine exists. Only the selected
+engine generates automatic runs; retain the other mode’s configuration.
+
+Implemented first draft: selectable persisted `smode=1`, Standard timed-match
+gating, busy-mode-change rejection, a dedicated program editor and shared
+settings draft. New forms save only browser-local drafts; mode 1 currently
+generates no automatic irrigation. This storage choice is an interim prototype
+implementation, not a decision to make the finished controller browser-dependent.

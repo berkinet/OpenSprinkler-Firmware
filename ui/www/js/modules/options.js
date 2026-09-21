@@ -653,12 +653,12 @@ OSApp.Options.showOptions = function( expandItem ) {
 			"<legend>" + OSApp.Language._( "Scheduling" ) + "</legend>" +
 			"<div class='ui-field-contain'><label for='smode'>" + OSApp.Language._( "Scheduling mode" ) + "</label>" +
 			"<select data-mini='true' id='smode' aria-describedby='scheduling-description'>" +
-			"<option value='0' selected>" + OSApp.Language._( "Standard" ) + "</option>" +
-			"<option value='1' disabled>" + OSApp.Language._( "Soil water balance (not yet available)" ) + "</option>" +
+			"<option value='0'" + ( OSApp.currentSession.controller.options.smode === 0 ? " selected" : "" ) + ">" + OSApp.Language._( "Standard" ) + "</option>" +
+			"<option value='1'" + ( OSApp.currentSession.controller.options.smode === 1 ? " selected" : "" ) + ">" + OSApp.Language._( "Soil water balance (editor preview)" ) + "</option>" +
 			"</select></div>" +
 			"<p id='scheduling-description' class='small'>" +
-			OSApp.Language._( "Standard uses your OpenSprinkler programs. Soil water balance will schedule watering from soil depletion, watering windows and zone priorities. It is not yet available." ) +
-			"</p>";
+			OSApp.Language._( "Standard runs your existing programs. Soil water balance opens the new editor, but automatic watering is paused until the engine is ready. Switch modes only when watering is idle. Save this page to apply your choice." ) +
+			"</p><a href='#soil-settings' class='ui-btn ui-mini'>" + OSApp.Language._( "Soil-water settings draft" ) + "</a>";
 	}
 
        list += "</fieldset><fieldset data-role='collapsible'" +

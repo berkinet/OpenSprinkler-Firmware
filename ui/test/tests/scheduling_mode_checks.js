@@ -23,16 +23,21 @@ describe("Controller scheduling mode", function () {
 		controller.stations = savedStations;
 		sandbox.restore();
 	});
-	it("places Standard and an unavailable soil-water mode in their own section", function () {
+	it("places both selectable scheduling modes in their own section", function () {
 		OSApp.Options.showOptions("scheduling");
 		var section = $("#scheduling-options");
 		assert.equal(section.length, 1);
 		assert.include(section.text(), "Scheduling mode");
 		assert.equal(section.find("#smode").val(), "0");
 		assert.isFalse(section.find("option[value='0']").prop("disabled"));
-		assert.isTrue(section.find("option[value='1']").prop("disabled"));
-		assert.include(section.find("option[value='1']").text(), "not yet available");
+		assert.isFalse(section.find("option[value='1']").prop("disabled"));
+		assert.include(section.find("option[value='1']").text(), "editor preview");
 		assert.notInclude(section.text(), "App Settings");
+	});
+	it("restores the controller-selected soil-water mode", function () {
+		controller.options.smode = 1;
+		OSApp.Options.showOptions("scheduling");
+		assert.equal($("#smode").val(), "1");
 	});
 	it("does not offer this setting on firmware without the controller option", function () {
 		delete controller.options.smode;

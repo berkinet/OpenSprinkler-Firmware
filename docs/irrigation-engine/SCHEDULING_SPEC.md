@@ -120,7 +120,7 @@ Keep future pulse plans outside the legacy runtime queue. The inspected firmware
 
 Persist configuration versions, water ledger/checkpoints, promotion tokens and event identity atomically. On restart, do not credit unfinished planned water or automatically resume stale pulses. Reconcile uncertain delivery and replan within the remaining legal window. Stop-all is available as a bridge capability; invoking it at every startup is not an agreed policy.
 
-A depletion-controlled valve must have one automatic owner. Legacy scheduling remains available for other valves; its known resource demand must be reserved, and overlapping legacy membership on the same valve must be rejected or explicitly migrated. Manual changes can invalidate reservations and require replanning. New hard-window guarantees cover this engine's automatic dispatch; whether all existing manual/legacy paths should be constrained is a separate integration decision, not a promise made by this document.
+A depletion-controlled valve must have one automatic owner. The owner subsequently selected a global scheduling-mode choice: only the selected engine generates automatic runs. Standard programs remain stored while soil-water mode is selected. Within soil-water mode, one program = one zone = one individual valve, with no duplicate program ownership. This supersedes the earlier proposal to run legacy scheduling alongside depletion scheduling on other valves. Manual changes can invalidate reservations and require replanning. New hard-window guarantees cover this engine's automatic dispatch; whether all existing manual/legacy paths should be constrained is a separate integration decision, not a promise made by this document.
 
 Do not bypass existing safety restrictions. Do not silently apply legacy weather/monthly/sensor duration scaling to a model-computed dose; audit and distinguish stop/veto safeguards from runtime multipliers at integration.
 
@@ -141,3 +141,13 @@ CSU Extension describes cycle-and-soak as a way to apply the required amount whi
 ## 11. Scope of the next deliverable
 
 Implement a pure offline reference model and replay harness from [REPLAY_PLAN.md](REPLAY_PLAN.md), with no network, GPIO, bridge calls or controller imports. First prove water accounting and interval packing independently of firmware. The reviewed revision-5 source is a reference baseline, not authorization to upgrade the installed revision-2 controller. UI and firmware deployment decisions follow replay evaluation.
+
+## 12. Visible editor increment — 21 September 2026
+
+The owner confirmed one program = one zone = one valve and requested a visible
+editor draft, with Soil water balance selectable before the engine exists. The
+test Pi now persists that selection and suppresses Standard timed matching in
+soil-water mode. The UI routes program creation/editing to the appropriate form.
+Draft soil-water forms are browser-local pending a controller storage contract;
+no new-engine watering or water accounting is implemented by this increment.
+See [UI_DEVELOPMENT.md](UI_DEVELOPMENT.md) for the precise preview boundary.

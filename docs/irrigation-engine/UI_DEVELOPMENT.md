@@ -2,10 +2,10 @@
 
 ## Source and maintenance
 
-The owner requested a Scheduling section under Edit Options, with Standard as
-the default and Soil water balance unavailable until its engine integration is
-ready. This increment establishes the controller option and UI; it does not
-switch algorithms or add watering-window configuration.
+The owner requested a Scheduling section under Edit Options and a dedicated
+soil-water program editor. The initial disabled alternative has now been
+superseded: both modes can be selected for evaluation on the dedicated test Pi.
+Soil water balance is an editor preview; its automatic engine is not integrated.
 
 `ui/` is a squashed git subtree of
 https://github.com/OpenSprinkler/OpenSprinkler-App at
@@ -27,16 +27,46 @@ Review and test the resulting changes before deployment.
 - `/jo` (and the options portion of `/ja`) exposes `smode`.
 - `smode=0` means Standard. Its byte is appended to the integer-option array,
   preserving previous file offsets. Older files receive the default 0.
-- `/co?smode=0` saves Standard through normal controller persistence.
+- `/co?smode=0` and `/co?smode=1` persist Standard and Soil water balance.
 - Other values, including malformed or empty input, are rejected before other
-  options in the request change. Unsupported stored values normalize to 0 on
-  load. This prevents activating an unfinished engine.
-- The UI shows this section only when the controller exposes `smode`. It does
-  not save the choice in browser storage. Soil water balance is disabled, with
-  explanatory text.
+  options in the request change. Unsupported stored values normalize to 0.
+- A mode change with a nonempty runtime queue is rejected before any options
+  change. Stop or finish watering before changing modes.
+- `ProgramStruct::check_match` returns no match in mode 1. Existing Standard
+  programs, including repeated run-once entries, remain stored but cannot start
+  by time. Standard resumes its normal matching when mode 0 is restored.
+- Manual commands and physical program-switch commands retain their existing
+  behavior. This preview is not a global valve-disable or legal-window guard.
+- The UI section only appears on controllers exposing `smode`. Edit Programs,
+  Add Program and Preview route according to the saved controller mode. The
+  dashboard identifies mode 1 as automatic watering paused.
 
-When the new engine is ready, extend the accepted values and startup validation
-together with scheduling dispatch, then enable its UI choice.
+## Visible editor draft (21 September 2026)
+
+One soil-water program owns one individual zone/valve; duplicate assignments,
+masters, disabled stations and bundle leaders/members are excluded. Standard
+program storage is separate and unchanged. The saved mode is global: the two
+automatic engines do not operate alongside each other.
+
+Edit Options → Scheduling selects the mode. Save options, then use Edit
+Programs → Add soil-water program. The form includes a name, one valve, enabled
+state, the sole Garden profile, a named priority group, application rate and
+efficiency, maximum cycle, minimum soak and minimum useful pulse. A five-minute
+example with one-minute cycle and soak displays five pulses and nine elapsed
+minutes. This timing illustration does not prescribe a fixed scheduled dose.
+
+Shared settings are linked from Scheduling and the soil-water program list:
+multiple weekly windows, overnight windows, excluded dates, ordered priority
+groups, configurable shortage reporting/promotion and the Garden soil profile.
+These describe draft inputs, not operational restriction enforcement. Promotion
+size remains undecided. No calibration defaults are presented as garden advice.
+
+**Storage boundary:** Save draft writes versioned, controller-scoped browser
+storage only. Drafts do not call `/cp`, survive reloads in that browser, and are
+not shared across browsers or included in controller backups. Clearing browser
+storage removes them. Switching to Standard preserves these drafts. Controller
+persistence, migrations, water ledger and actual soil-water dispatch are future
+work. Blank calibration fields are allowed for review, not operational readiness.
 
 ## UI packaging and tests
 
@@ -149,3 +179,23 @@ owner. Removing the current copy alone does not resolve historical exposure.
 Validation: 376 browser tests passed, including disabled-map fallback and a
 stubbed configured-key failure path. A Google API-key-pattern scan of tracked
 working files and the rebuilt UI archive found no matches.
+
+### Editor validation
+
+The DEMO firmware compiled on the Pi. Browser coverage checks both selectable
+modes, saved selection, draft isolation, one valve per program, disabled/master/
+bundle exclusion, cycle timing, calibration validation, shared windows and group
+references. Test installation backups and the compiled candidate are under
+`/home/codex/irrigation-build-records/scheduling-ui/`, with `before-editor` names.
+Only the dedicated DEMO installation and loopback valve receiver are used.
+
+The final UI suite passed **387 tests**, and all **32 offline replay tests**
+passed. ESLint and packaging succeeded. Browser review confirmed form layout,
+draft save/reopen and the five-minute ON / nine-minute elapsed illustration.
+
+The guarded `python3 -m tools.valve_sim.check_scheduling_mode` check on ospi-dev
+verified malformed-mode rejection without partial option changes, an intact due
+Standard program remaining inactive in mode 1, that same program running after
+returning to Standard, and atomic rejection of a mode change while watering was
+queued. Its synthetic program was removed and both simulated valves were OFF
+at completion. Results: `scheduling-ui/soil-mode-checks.txt` in the build records.

@@ -269,7 +269,7 @@ const IOptDef iopt_defs[NUM_IOPTS] PROGMEM = {
 	/* IOPT_SENSOR4_OPTION     */ {"sn4o",  1,                1,                                 0,                      "Normally open?  "},
 	/* IOPT_SENSOR4_ON_DELAY   */ {"sn4on", 255,              0,                                 0,                      "Sn4 on adjust:  "},
 	/* IOPT_SENSOR4_OFF_DELAY  */ {"sn4of", 255,              0,                                 0,                      "Sn4 off adjust: "},
-	/* IOPT_SCHEDULING_MODE    */ {"smode", 0,                0,                                 0,                      "Scheduling mode:"},
+	/* IOPT_SCHEDULING_MODE    */ {"smode", 1,                0,                                 0,                      "Scheduling mode:"},
 };
 
 static_assert(sizeof(iopt_defs)/sizeof(iopt_defs[0]) == NUM_IOPTS,
@@ -2169,9 +2169,8 @@ void OpenSprinkler::iopts_load() {
 	if (f) file_close(f);
 	if (load_count > NUM_IOPTS) load_count = NUM_IOPTS;
 	file_read_block(IOPTS_FILENAME, iopts, 0, load_count);
-	// Only Standard (0) is executable until the new engine is integrated.
-	// Older files inherit 0; unsupported stored values cannot enable a mode.
-	iopts[IOPT_SCHEDULING_MODE] = 0;
+	// Mode 1 persists for UI evaluation; its automatic scheduler is not integrated.
+	if (iopts[IOPT_SCHEDULING_MODE] > 1) iopts[IOPT_SCHEDULING_MODE] = 0;
 	nboards = iopts[IOPT_EXT_BOARDS]+1;
 	nstations = nboards * 8;
 	status.enabled = iopts[IOPT_DEVICE_ENABLE];

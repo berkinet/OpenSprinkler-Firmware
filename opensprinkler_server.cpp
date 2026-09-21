@@ -1421,12 +1421,15 @@ void server_change_scripturl(OTF_PARAMS_DEF) {
 void server_change_options(OTF_PARAMS_DEF)
 {
 	if(!process_password(OTF_PARAMS)) return;
-	// Validate before changing any options: the unfinished engine must not be
-	// enabled through a direct API call, nor should a rejected request partly save.
+	// Validate mode before changing any options, including concurrent edits.
 	uint8_t scheduling_mode_found = 0;
 	findKeyVal(FKV_SOURCE, tmp_buffer, TMP_BUFFER_SIZE, PSTR("smode"), true, &scheduling_mode_found);
-	if (scheduling_mode_found && strcmp(tmp_buffer, "0") != 0) {
+	if (scheduling_mode_found && strcmp(tmp_buffer, "0") != 0 && strcmp(tmp_buffer, "1") != 0) {
 		handle_return(HTML_DATA_OUTOFBOUND);
+	}
+	// Do not switch engines with active or queued watering from the previous mode.
+	if (scheduling_mode_found && (tmp_buffer[0] - '0') != os.iopts[IOPT_SCHEDULING_MODE] && pd.nqueue) {
+		handle_return(HTML_NOT_PERMITTED);
 	}
 	// temporarily save some old options values
 	bool time_change = false;

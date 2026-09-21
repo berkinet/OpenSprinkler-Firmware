@@ -155,9 +155,19 @@ OSApp.UIDom.launchApp = function() {
 
 		// Cycle through page possibilities and call their init functions
 		if ( hash === "#programs" ) {
-			OSApp.Programs.displayPage( data.options.programToExpand );
+			if ( OSApp.currentSession.controller.options.smode === 1 ) {
+				OSApp.SoilPrograms.displayPage();
+			} else {
+				OSApp.Programs.displayPage( data.options.programToExpand );
+			}
 		} else if ( hash === "#addprogram" ) {
-			OSApp.Programs.addProgram( data.options.copyID );
+			if ( OSApp.currentSession.controller.options.smode === 1 ) {
+				OSApp.SoilPrograms.editPage( data.options.soilZone );
+			} else {
+				OSApp.Programs.addProgram( data.options.copyID );
+			}
+		} else if ( hash === "#soil-settings" ) {
+			OSApp.SoilPrograms.settingsPage();
 		} else if ( hash === "#manual" ) {
 			OSApp.Programs.displayPageManual();
 		} else if ( hash === "#about" ) {
@@ -171,7 +181,11 @@ OSApp.UIDom.launchApp = function() {
 		} else if ( hash === "#analogsensorchart" && OSApp.Analog.checkAnalogSensorAvail() ) {
 			OSApp.Analog.showAnalogSensorCharts();
 		} else if ( hash === "#preview" ) {
-			OSApp.Programs.displayPagePreviewPrograms();
+			if ( OSApp.currentSession.controller.options.smode === 1 ) {
+				OSApp.SoilPrograms.previewPage();
+			} else {
+				OSApp.Programs.displayPagePreviewPrograms();
+			}
 		} else if ( hash === "#logs" ) {
 			OSApp.Logs.displayPage();
 		} else if ( hash === "#forecast" ) {

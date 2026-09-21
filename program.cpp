@@ -326,6 +326,9 @@ unsigned char ProgramStruct::check_day_match(time_os_t t) {
 // Return value: 0 if no match; otherwise return the n-th count of the match.
 // For example, if this is the first-run of the day, return 1 etc.
 unsigned char ProgramStruct::check_match(time_os_t t, bool *to_delete) {
+	// Standard timed programs are retained but inactive in soil-water mode.
+	// This also covers repeated run-once programs and safe-reboot lookahead.
+	if (os.iopts[IOPT_SCHEDULING_MODE] != 0) return 0;
 
 	// check program enable status
 	if (!enabled) return 0;

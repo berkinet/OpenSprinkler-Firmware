@@ -129,3 +129,12 @@ The machine-readable report is
 These results validate local HTTP command delivery and timed sequencing, not
 the real vendor bridges or exact watering-window execution. The original
 five-minute-ON/nine-minute-elapsed case remains an offline numerical test.
+
+### Soil-water editor preview
+
+The 21 September editor increment keeps the same test URL. Select Soil water
+balance under Edit Options → Scheduling and save, then open Edit Programs. The
+choice persists on the controller; the new program and shared-settings drafts
+are stored only in the browser. Standard timed programs are suspended in this
+mode. The actual soil-water scheduler remains unimplemented. See
+[UI_DEVELOPMENT.md](UI_DEVELOPMENT.md) for the complete boundary and controls.
