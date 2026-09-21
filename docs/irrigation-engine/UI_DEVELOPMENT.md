@@ -57,8 +57,10 @@ example with one-minute cycle and soak displays five pulses and nine elapsed
 minutes. This timing illustration does not prescribe a fixed scheduled dose.
 
 Shared settings are linked from Edit Options → Scheduling:
-multiple weekly windows, overnight windows, excluded dates, ordered priority
-groups, configurable shortage reporting/promotion and the Garden soil profile.
+multiple weekly windows, overnight windows, excluded dates, configurable
+shortage reporting/promotion and the Garden soil profile. Priority groups have
+their own page in Scheduling, available when Soil water balance is saved as
+the active mode.
 These describe draft inputs, not operational restriction enforcement. Promotion
 size remains undecided. No calibration defaults are presented as garden advice.
 
@@ -230,3 +232,25 @@ opened with one-minute cycle and soak. The shared picker’s 30-second selection
 updated the preview to ten pulses and fourteen elapsed minutes. Reopening the
 unsaved draft restored its original five pulses / nine minutes. No controller
 scheduling settings, programs or valve commands changed during this UI check.
+
+## Priority Groups page
+
+Edit Options → Scheduling → Priority Groups appears for the saved soil-water
+mode. Each group has only a name and its position in the ordered list. Move up
+and Move down change the order; highest priority comes first. Additional group
+properties are explicitly deferred. Add group creates a blank row; Save draft
+validates and persists the entire edit in browser storage for this controller.
+
+Names must be nonempty and unique (case-insensitive). A rename updates all
+program assignments atomically, including name swaps. Used groups cannot be
+removed; at least one group remains. The program dropdown follows saved order.
+The old shared-settings textarea was removed, leaving one group editor.
+
+Group saving rejects conflicting group edits from another window and preserves
+other current draft data. Program and shared-settings saves reload current
+groups so they cannot silently undo a rename or reorder. The existing ordered
+name schema remains compatible; controller persistence is still future work.
+
+Validation: 398 browser tests passed, covering conditional navigation, add and
+reorder, reference-preserving renames, removal restrictions, duplicate/blank
+names, stale group edits and preservation when shared settings are saved.

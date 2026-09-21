@@ -52,7 +52,7 @@ OSApp.SoilPrograms.page = function( id, title, back, save, rightButton ) {
 			)
 		);
 	}
-	var header = { title: title, leftBtn: { icon: "carat-l", text: "Back", on: function() { OSApp.UIDom.changePage( back ); } } };
+	var header = { title: title, leftBtn: { icon: "carat-l", text: "Back", on: function() { if ( typeof back === "function" ) { back(); } else { OSApp.UIDom.changePage( back ); } } } };
 	if ( save ) { header.rightBtn = { icon: "check", text: "Save draft", on: save }; }
 	if ( rightButton ) { header.rightBtn = rightButton; }
 	OSApp.UIDom.changeHeader( header );
@@ -115,6 +115,8 @@ OSApp.SoilPrograms.editPage = function( sid ) {
 	var page, data, program, fields = {}, originalSid = sid;
 	function save() {
 		if ( !data || !fields.zone ) { return; }
+		try { data = OSApp.SoilPrograms.load(); } catch ( e ) { return OSApp.Errors.showError( e.message ); }
+		if ( !data.groups.includes( fields.group.val() ) ) { return OSApp.Errors.showError( "Priority groups changed. Reopen this program to select a current group." ); }
 		var chosen = Number( fields.zone.val() );
 		if ( fields.zone.val() === null || !OSApp.SoilPrograms.eligibleZones().some( function( z ) { return z.sid === chosen; } ) ) {
 			return OSApp.Errors.showError( "Choose an available valve." );
@@ -186,12 +188,10 @@ OSApp.SoilPrograms.editPage = function( sid ) {
 };
 
 OSApp.SoilPrograms.settingsPage = function() {
-	var data, groups, excluded, shortage, profile = {}, windows, page;
+	var data, excluded, shortage, profile = {}, windows, page;
 	function save() {
 		if ( !data ) { return; }
-		var names = groups.val().split( "\n" ).map( function( g ) { return g.trim(); } ).filter( Boolean );
-		if ( !names.length || new Set( names ).size !== names.length ) { return OSApp.Errors.showError( "Enter at least one group, with a unique name on each line." ); }
-		if ( data.programs.some( function( p ) { return !names.includes( p.group ); } ) ) { return OSApp.Errors.showError( "Reassign programs before removing or renaming their priority group." ); }
+
 		var rules = [], valid = true;
 		windows.children().each( function() {
 			var row = $( this ), days = row.find( ":checkbox:checked" ).map( function() { return Number( this.value ); } ).get();
@@ -208,7 +208,8 @@ OSApp.SoilPrograms.settingsPage = function() {
 			if ( raw !== "" && ( !Number.isFinite( n ) || n <= 0 || ( [ "depletion", "rain" ].includes( key ) && n > 100 ) ) ) { return OSApp.Errors.showError( "Profile values must be positive; percentages cannot exceed 100." ); }
 			values[ key ] = raw === "" ? "" : n;
 		}
-		data.groups = names; data.windows = rules; data.excluded = dates.join( "\n" ); data.shortage = shortage.val(); data.profile = values;
+		try { data = OSApp.SoilPrograms.load(); } catch ( e ) { return OSApp.Errors.showError( e.message ); }
+		data.windows = rules; data.excluded = dates.join( "\n" ); data.shortage = shortage.val(); data.profile = values;
 		try { OSApp.SoilPrograms.save( data ); } catch ( e ) { return OSApp.Errors.showError( "Could not save draft: " + e.message ); }
 		OSApp.Errors.showError( "Shared draft saved in this browser." );
 	}
@@ -236,8 +237,7 @@ OSApp.SoilPrograms.settingsPage = function() {
 	body.append( $( "<button class='ui-btn'>Add watering window</button>" ).on( "click", function() { addWindow( {} ); } ) );
 	body.append( "<label for='soil-excluded'>Excluded dates (YYYY-MM-DD, one per line)</label>" );
 	excluded = $( "<textarea id='soil-excluded'></textarea>" ).val( data.excluded ).appendTo( body );
-	body.append( "<h2>Priority groups</h2><label for='soil-groups'>Highest priority first \xb7 one name per line</label>" );
-	groups = $( "<textarea id='soil-groups'></textarea>" ).val( data.groups.join( "\n" ) ).appendTo( body );
+	body.append( "<h2>Capacity shortfalls</h2>" );
 	shortage = OSApp.SoilPrograms.select( body, "soil-shortage", "When capacity is insufficient", [ { value: "report_only", label: "Report missed watering only" }, { value: "promote_next", label: "Report and promote for next window only" } ], data.shortage );
 	body.append( "<p class='small'>Full refill is preferred. A sufficient partial refill may be planned when a full refill cannot fit. Promotion never changes the zone\u2019s assigned group; its size remains to be decided.</p><h2>Garden \xb7 shared site profile</h2><p class='small'>One profile initially; water balance is tracked separately for each valve. Blank values mean not yet calibrated.</p>" );
 	[ [ "capacity", "Available water capacity (mm per metre of soil)" ], [ "roots", "Effective root depth (metres)" ], [ "depletion", "Allowed depletion (%)" ], [ "crop", "Crop coefficient" ], [ "rain", "Effective rainfall (%)" ] ].forEach( function( pair ) {

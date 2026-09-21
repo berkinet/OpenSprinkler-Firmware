@@ -21,7 +21,7 @@ describe("Soil-water program drafts", function () {
 		sandbox.stub(OSApp.Firmware, "sendToOS");
 	});
 	afterEach(function () {
-		$("#programs, #addprogram, #soil-settings").remove();
+		$("#programs, #addprogram, #soil-settings, #priority-groups").remove();
 		OSApp.currentSession.controller = oldController;
 		OSApp.currentSession.ip = oldIP;
 		sandbox.restore();
@@ -103,8 +103,9 @@ describe("Soil-water program drafts", function () {
 		assert.equal(programs.find(p => p.sid === 1).name, "RM");
 	});
 	it("preserves shared window rules and ordered groups on save", function () {
+		var initial = OSApp.SoilPrograms.load(); initial.groups = ["Critical", "Normal", "Low"];
+		OSApp.SoilPrograms.save(initial);
 		OSApp.SoilPrograms.settingsPage();
-		$("#soil-groups").val("Critical\nNormal\nLow");
 		$("#soil-settings button").filter(function () { return $(this).text() === "Add watering window"; }).trigger("click");
 		$(".window-start").val("22:00"); $(".window-end").val("05:00");
 		$("#window-day-0-0").prop("checked", true);
@@ -126,10 +127,57 @@ describe("Soil-water program drafts", function () {
 		header.rightBtn.on();
 		assert.isFalse(OSApp.Storage.setItemSync.called);
 	});
-	it("does not remove a priority group while a program uses it", function () {
+	it("keeps used priority groups and at least one group", function () {
 		OSApp.SoilPrograms.editPage(); header.rightBtn.on();
-		OSApp.SoilPrograms.settingsPage(); $("#soil-groups").val("High"); header.rightBtn.on();
+		OSApp.PriorityGroups.displayPage();
+		assert.isTrue($(".priority-remove").prop("disabled"));
+		assert.throws(() => OSApp.PriorityGroups.save(["Normal"], [{original: null, name: "High"}]), "Reassign programs");
+		assert.throws(() => OSApp.PriorityGroups.save(["Normal"], []), "at least one group");
 		assert.deepEqual(OSApp.SoilPrograms.load().groups, ["Normal"]);
+	});
+	it("adds and reorders named groups and refreshes program choices", function () {
+		OSApp.PriorityGroups.displayPage();
+		$("#add-priority-group").trigger("click");
+		$(".priority-group-name").last().val("Critical").trigger("input");
+		$(".priority-up").last().trigger("click");
+		assert.isTrue($(".priority-up").first().prop("disabled"));
+		assert.isTrue($(".priority-down").last().prop("disabled"));
+		header.rightBtn.on();
+		assert.deepEqual(OSApp.SoilPrograms.load().groups, ["Critical", "Normal"]);
+		OSApp.SoilPrograms.editPage();
+		assert.deepEqual($("#soil-group option").map(function() { return this.value; }).get(), ["Critical", "Normal"]);
+		assert.isFalse(OSApp.Firmware.sendToOS.called);
+	});
+	it("renames used groups atomically, including swapped names", function () {
+		var data = OSApp.SoilPrograms.load(); data.groups = ["High", "Low"];
+		data.programs = [{sid: 0, group: "High"}, {sid: 1, group: "Low"}];
+		OSApp.SoilPrograms.save(data);
+		OSApp.PriorityGroups.save(data.groups, [{original: "Low", name: "High"}, {original: "High", name: "Low"}]);
+		assert.deepEqual(OSApp.SoilPrograms.load().programs.map(p => p.group), ["Low", "High"]);
+	});
+	it("rejects empty or duplicate group names without changing assignments", function () {
+		for (const rows of [[{original:"Normal",name:" "}], [{original:"Normal",name:"High"},{original:null,name:" high "}]]) {
+			assert.throws(() => OSApp.PriorityGroups.save(["Normal"], rows));
+		}
+		assert.deepEqual(OSApp.SoilPrograms.load().groups, ["Normal"]);
+	});
+	it("rejects stale group edits and keeps unrelated new draft changes", function () {
+		var latest = OSApp.SoilPrograms.load(); latest.excluded = "2026-10-01";
+		OSApp.SoilPrograms.save(latest);
+		OSApp.PriorityGroups.save(["Normal"], [{original:"Normal",name:"Garden"}]);
+		assert.equal(OSApp.SoilPrograms.load().excluded, "2026-10-01");
+		assert.throws(() => OSApp.PriorityGroups.save(["Normal"], [{original:"Normal",name:"Old"}]), "another window");
+	});
+	it("shared settings cannot overwrite renamed or reordered groups", function () {
+		OSApp.SoilPrograms.settingsPage();
+		OSApp.PriorityGroups.save(["Normal"], [{original:"Normal",name:"Garden"}]);
+		header.rightBtn.on();
+		assert.deepEqual(OSApp.SoilPrograms.load().groups, ["Garden"]);
+	});
+	it("does not render group editing controls in Standard mode", function () {
+		OSApp.currentSession.controller.options.smode = 0;
+		OSApp.PriorityGroups.displayPage();
+		assert.lengthOf($("#add-priority-group, .priority-group-name"), 0);
 	});
 	it("keeps an unreadable draft intact instead of overwriting it", function () {
 		memory[OSApp.SoilPrograms.storageKey()] = "invalid-json";

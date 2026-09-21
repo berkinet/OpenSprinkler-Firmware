@@ -98,3 +98,11 @@ The owner requested reuse of Standard program-editor code wherever behavior
 is shared, including timing controls. Name, enable and duration controls now
 share implementation. Mode-specific scheduling semantics and persistence stay
 separate; Standard repeat intervals are not reinterpreted as OFF-time soak.
+
+## Priority-group management page
+
+Owner decision: a dedicated page under Scheduling for the new algorithm. For
+now groups have a name and an editable order only; additional properties can
+be introduced later. Implemented with Move up / Move down and a highest-first
+list, conditional on the saved Soil water balance selection. Renaming retains
+program assignments; the initial implementation retains browser-draft storage.

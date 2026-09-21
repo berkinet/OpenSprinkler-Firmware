@@ -39,6 +39,15 @@ describe("Controller scheduling mode", function () {
 		OSApp.Options.showOptions("scheduling");
 		assert.equal($("#smode").val(), "1");
 	});
+	it("offers Priority Groups only for the saved soil-water scheduling mode", function () {
+		OSApp.Options.showOptions("scheduling");
+		assert.lengthOf($("#priority-groups-link"), 0);
+		controller.options.smode = 1;
+		OSApp.Options.showOptions("scheduling");
+		assert.equal($("#priority-groups-link").attr("href"), "#priority-groups");
+		$("#smode").val("0").trigger("change");
+		assert.equal($("#priority-groups-link").css("display"), "none");
+	});
 	it("does not offer this setting on firmware without the controller option", function () {
 		delete controller.options.smode;
 		OSApp.Options.showOptions();
