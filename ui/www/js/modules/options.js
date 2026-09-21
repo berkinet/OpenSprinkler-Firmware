@@ -660,7 +660,7 @@ OSApp.Options.showOptions = function( expandItem ) {
 			OSApp.Language._( "Standard runs your existing programs. Soil water balance opens the new editor, but automatic watering is paused until the engine is ready. Switch modes only when watering is idle. Save this page to apply your choice." ) +
 			"</p>" + ( OSApp.currentSession.controller.options.smode === 1 ?
 				"<a id='priority-groups-link' href='#priority-groups' class='ui-btn ui-mini'>" + OSApp.Language._( "Priority Groups" ) + "</a>" +
-				"<a id='equipment-catalog-link' href='#equipment-catalog' class='ui-btn ui-mini'>Equipment catalogue</a>" : "" ) +
+				"<a id='equipment-catalog-link' href='#equipment-catalog' class='ui-btn ui-mini'>Equipment catalog</a>" : "" ) +
 			"<a href='#soil-settings' class='ui-btn ui-mini'>" + OSApp.Language._( "Soil-water settings draft" ) + "</a>";
 	}
 

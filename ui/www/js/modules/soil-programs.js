@@ -174,7 +174,7 @@ OSApp.SoilPrograms.editPage = function( sid ) {
 	runtimeBox.append( "<p class='small'>A completed event is assumed to refill the zone. ETo and rainfall change frequency, not this runtime. Interrupted watering is not treated as a full refill. An event that cannot fit is skipped and reported.</p>" );
 	fields.depth = OSApp.SoilPrograms.field( depthBox, "soil-depth", "Net water depth per watering (mm)", program.depth, "number" );
 	calibration.append( "<h3>Water delivery</h3>" );
-	fields.calibrationSource = OSApp.SoilPrograms.select( calibration, "soil-calibration-source", "Calibration method", [ { value: "manual", label: "Manual entry" }, { value: "catalogue", label: "Equipment catalogue" } ], program.calibrationSource || "manual" );
+	fields.calibrationSource = OSApp.SoilPrograms.select( calibration, "soil-calibration-source", "Calibration method", [ { value: "manual", label: "Manual entry" }, { value: "catalogue", label: "Equipment catalog" } ], program.calibrationSource || "manual" );
 	var manualBox = $( "<div id='soil-manual-calibration'></div>" ).appendTo( calibration ), catalogBox = $( "<div id='soil-catalogue-calibration'></div>" ).appendTo( calibration );
 	fields.rate = OSApp.SoilPrograms.field( manualBox, "soil-rate", "Gross application rate (mm/hour)", program.rate, "number" );
 	fields.efficiency = OSApp.SoilPrograms.field( manualBox, "soil-efficiency", "Application efficiency (%)", program.efficiency, "number" );
@@ -275,7 +275,7 @@ OSApp.SoilPrograms.settingsPage = function() {
 	body.append( "<h2>Capacity shortfalls</h2>" );
 	shortage = OSApp.SoilPrograms.select( body, "soil-shortage", "When capacity is insufficient", [ { value: "report_only", label: "Report missed watering only" }, { value: "promote_next", label: "Report and promote for next window only" } ], data.shortage );
 	body.append( "<p class='small'>Full events are preferred. Calibrated water-depth mode can use a sufficient partial event when capacity is short. Runtime mode needs a complete event or reports a skip. Promotion never changes the zone\u2019s assigned group; its size remains to be decided.</p><h2>Garden \xb7 shared site profile</h2><p class='small'>One profile initially; water balance is tracked separately for each valve. Blank values mean not yet calibrated.</p>" );
-	[ [ "capacity", "Available water capacity (mm per metre of soil)" ], [ "roots", "Effective root depth (metres)" ], [ "depletion", "Allowed depletion (%)" ], [ "crop", "Crop coefficient" ], [ "rain", "Effective rainfall (%)" ] ].forEach( function( pair ) {
+	[ [ "capacity", "Available water capacity (mm per meter of soil)" ], [ "roots", "Effective root depth (meters)" ], [ "depletion", "Allowed depletion (%)" ], [ "crop", "Crop coefficient" ], [ "rain", "Effective rainfall (%)" ] ].forEach( function( pair ) {
 		profile[ pair[ 0 ] ] = OSApp.SoilPrograms.field( body, "profile-" + pair[ 0 ], pair[ 1 ], data.profile[ pair[ 0 ] ], "number" );
 	} );
 	body.append( "<p>Weather source: OpenSprinkler ETo service (planned).</p>" );
