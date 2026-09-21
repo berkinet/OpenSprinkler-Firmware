@@ -265,3 +265,13 @@ functionality matches, including label/input alignment, spacing, grouping and
 button placement. This extends the shared-controls decision above to visual
 consistency. The current prototype layout is provisional; no visual changes
 are requested at this stage.
+
+## Offline engine connection
+
+Preview Programs in soil-water mode now offers Export saved draft. This exports
+the existing v1 configuration for the offline engine, without controller
+connection settings or unsaved form edits. The shared profile accepts zero crop
+and rainfall factors, matching the model's permitted range. See
+[ENGINE_INTEGRATION.md](ENGINE_INTEGRATION.md) for the configuration contract,
+runtime inputs, reproducible example and validation. Controller persistence
+and automatic new-engine execution remain unconnected.

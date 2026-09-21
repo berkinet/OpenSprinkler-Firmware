@@ -205,7 +205,7 @@ OSApp.SoilPrograms.settingsPage = function() {
 		var values = {};
 		for ( var key of Object.keys( profile ) ) {
 			var raw = profile[ key ].val(), n = Number( raw );
-			if ( raw !== "" && ( !Number.isFinite( n ) || n <= 0 || ( [ "depletion", "rain" ].includes( key ) && n > 100 ) ) ) { return OSApp.Errors.showError( "Profile values must be positive; percentages cannot exceed 100." ); }
+			if ( raw !== "" && ( !Number.isFinite( n ) || n < 0 || ( n === 0 && ![ "crop", "rain" ].includes( key ) ) || ( [ "depletion", "rain" ].includes( key ) && n > 100 ) ) ) { return OSApp.Errors.showError( "Capacity, root depth and allowed depletion must be positive. Crop and rainfall factors may be zero; percentages cannot exceed 100." ); }
 			values[ key ] = raw === "" ? "" : n;
 		}
 		try { data = OSApp.SoilPrograms.load(); } catch ( e ) { return OSApp.Errors.showError( e.message ); }
@@ -250,6 +250,17 @@ OSApp.SoilPrograms.settingsPage = function() {
 OSApp.SoilPrograms.previewPage = function() {
 	OSApp.SoilPrograms.page( "preview", "Soil-water plan", "#sprinklers" ).find( "main" ).append(
 		$( "<p></p>" ).text( "No automatic plan is available yet. Standard programs are retained and will resume when you select Standard scheduling." ),
-		$( "<a href='#programs' class='ui-btn'>Edit soil-water programs</a>" )
+		$( "<a href='#programs' class='ui-btn'>Edit soil-water programs</a>" ),
+		$( "<p></p>" ).text( "Export your saved draft to evaluate it with the offline engine. Unsaved form edits are not included." ),
+		$( "<a href='#' id='export-soil-draft' class='ui-btn' data-ajax='false' download='soil-water-draft.json'>Export saved draft</a>" ).on( "click", function( event ) {
+			try {
+				$( this ).attr( "href", "data:application/json;charset=utf-8," + encodeURIComponent( OSApp.SoilPrograms.exportDraft() ) );
+			} catch ( e ) { event.preventDefault(); OSApp.Errors.showError( e.message ); }
+		} )
 	);
+};
+
+// Export only the separate draft; never include controller credentials/config.
+OSApp.SoilPrograms.exportDraft = function() {
+	return JSON.stringify( OSApp.SoilPrograms.load(), null, 2 );
 };

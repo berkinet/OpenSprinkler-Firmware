@@ -8,8 +8,13 @@ Research and design an optional soil-depletion scheduling mode and watering-wind
 - [Offline replay plan](REPLAY_PLAN.md) — acceptance scenarios and numerical examples
 - [Dedicated test Pi setup](TEST_PI_SETUP.md) — environment and reproducible DEMO build
 - [UI development and scheduling mode](UI_DEVELOPMENT.md) — integrated UI source and test deployment
+- [Configuration-to-engine integration](ENGINE_INTEGRATION.md) — executable draft-to-plan path, field mappings and runtime gaps
 
-The [first offline reference model](../../tools/irrigation_replay/README.md) is implemented with synthetic fixtures and tests. Multi-window service-horizon planning and firmware integration remain to be built. The controller-backed scheduling-mode selector is now installed on the test Pi, with only Standard enabled.
+The [offline reference model](../../tools/irrigation_replay/README.md) now accepts
+the actual browser draft format and explicit runtime snapshots. Multi-window
+service-horizon planning and firmware integration remain to be built. Both
+scheduling modes are selectable on the test Pi; Soil water balance opens the
+editor preview and keeps automatic watering paused.
 
 ## Background and decisions
 

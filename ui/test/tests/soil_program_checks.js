@@ -21,7 +21,7 @@ describe("Soil-water program drafts", function () {
 		sandbox.stub(OSApp.Firmware, "sendToOS");
 	});
 	afterEach(function () {
-		$("#programs, #addprogram, #soil-settings, #priority-groups").remove();
+		$("#programs, #addprogram, #soil-settings, #priority-groups, #preview").remove();
 		OSApp.currentSession.controller = oldController;
 		OSApp.currentSession.ip = oldIP;
 		sandbox.restore();
@@ -188,5 +188,50 @@ describe("Soil-water program drafts", function () {
 		assert.include(OSApp.SoilPrograms.pulseSummary(5, 1, 1), "Elapsed: 9 min");
 		assert.include(OSApp.SoilPrograms.pulseSummary(5, 2, 1), "2 × 2 min + 1 min");
 		assert.include(OSApp.SoilPrograms.pulseSummary(5, 10, 1), "Elapsed: 5 min");
+	});
+	it("produces the exact draft fixture consumed by the offline scheduling engine", function () {
+		var expected = window.__karma__.config.engineDraftFixture;
+		var initial = OSApp.SoilPrograms.load(); initial.groups = expected.groups.slice();
+		OSApp.SoilPrograms.save(initial);
+		OSApp.SoilPrograms.settingsPage();
+		expected.windows.forEach(function (rule, i) {
+			$("#soil-settings button").filter(function () { return $(this).text() === "Add watering window"; }).trigger("click");
+			$("#window-start-"+i).val(rule.start); $("#window-end-"+i).val(rule.end);
+			rule.days.forEach(day => $("#window-day-"+i+"-"+day).prop("checked", true));
+		});
+		Object.keys(expected.profile).forEach(key => $("#profile-"+key).val(expected.profile[key]));
+		$("#soil-shortage").val(expected.shortage); $("#soil-excluded").val(expected.excluded);
+		header.rightBtn.on();
+		expected.programs.forEach(function (p) {
+			OSApp.SoilPrograms.editPage();
+			$("#soil-zone").val(p.sid); $("#soil-name").val(p.name); $("#soil-group").val(p.group);
+			$("#soil-enabled").prop("checked", p.enabled);
+			["rate", "efficiency"].forEach(key => $("#soil-"+key).val(p[key]));
+			["cycle", "soak", "minimum"].forEach(key => $("#soil-"+key).val(Math.round(p[key]*60)));
+			header.rightBtn.on();
+		});
+		assert.deepEqual(JSON.parse(OSApp.SoilPrograms.exportDraft()), expected);
+		assert.isFalse(OSApp.Firmware.sendToOS.called);
+	});
+	it("accepts zero crop and effective-rain factors while rejecting zero storage", function () {
+		OSApp.SoilPrograms.settingsPage();
+		$("#profile-crop, #profile-rain").val(0);
+		header.rightBtn.on();
+		assert.strictEqual(OSApp.SoilPrograms.load().profile.crop, 0);
+		assert.strictEqual(OSApp.SoilPrograms.load().profile.rain, 0);
+		$("#profile-capacity").val(0);
+		OSApp.Storage.setItemSync.resetHistory();
+		header.rightBtn.on();
+		assert.isFalse(OSApp.Storage.setItemSync.called);
+	});
+	it("exports only the saved draft, including uncalibrated blanks", function () {
+		OSApp.SoilPrograms.editPage(); header.rightBtn.on();
+		var saved = OSApp.SoilPrograms.load();
+		OSApp.SoilPrograms.editPage(0); $("#soil-name").val("Unsaved name");
+		assert.deepEqual(JSON.parse(OSApp.SoilPrograms.exportDraft()), saved);
+		assert.strictEqual(JSON.parse(OSApp.SoilPrograms.exportDraft()).programs[0].rate, "");
+		OSApp.SoilPrograms.previewPage();
+		assert.equal($("#export-soil-draft").attr("download"), "soil-water-draft.json");
+		assert.isFalse(OSApp.Firmware.sendToOS.called);
 	});
 });

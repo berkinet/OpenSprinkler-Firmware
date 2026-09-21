@@ -7,6 +7,8 @@ module.exports = function (config) {
 		plugins: [require('karma-mocha'), require('karma-chai'), require('karma-chrome-launcher')],
 		frameworks: ['mocha', 'chai'],
 		basePath: '../',
+		// One fixture exercises actual form output and the Python engine contract.
+		client: { engineDraftFixture: require('../../tools/irrigation_replay/fixtures/editor-draft.json') },
 		files: [
 			// The file order below is important to prevent undefined errors during testing!
 			// Load dependencies

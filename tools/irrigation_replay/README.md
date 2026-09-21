@@ -10,6 +10,26 @@ python3 -m tools.irrigation_replay tools/irrigation_replay/fixtures/partial-refi
 
 The CLI reads an explicit local fixture and writes a JSON report to stdout. It contains no network/GPIO/device integration, credentials, valve commands or imports of controller/bridge code. No package installation is needed. `calendar.py` uses the host's standard time-zone database through `zoneinfo`.
 
+## Browser configuration integration
+
+The engine now also consumes the actual exported v1 soil-water form draft,
+with explicit runtime state. See the [configuration-to-engine integration
+notes](../../docs/irrigation-engine/ENGINE_INTEGRATION.md) for field mappings,
+missing runtime inputs, synthetic results and the remaining firmware boundary.
+
+```zsh
+python3 -m tools.irrigation_replay --draft tools/irrigation_replay/fixtures/editor-draft.json
+python3 -m tools.irrigation_replay \
+  --draft tools/irrigation_replay/fixtures/editor-draft.json \
+  --runtime tools/irrigation_replay/fixtures/editor-runtime.json
+```
+
+`draft.py` validates and converts UI units; `engine.py` resolves calendar rules
+and calls the existing planner. A shared fixture is tested through both the
+real browser forms and the Python engine. The adapter requires explicit
+reconciled depletion, dated ETo, resource settings and legal future service
+assumptions. It does not solve future service capacity or persist/deliver plans.
+
 ## Implemented
 
 - Validated shared profiles, separate valve ledgers, ordered named priority groups.
@@ -41,7 +61,7 @@ This is the first reference-model milestone, not the completed production schedu
 - **Profiles stay fixed for a replay.** Soil/profile migrations and numerical calibration changes are not implemented. A ledger checkpoint only contains events and must be restored against the same initial state and configuration; it is not a production crash-safe file format.
 - **One shared resource.** No simultaneous valves. Named priority groups do not define hydraulic groups. Reservations identify external valves; a reservation on a managed valve is rejected as ambiguous ownership. The caller supplies `ready_at` for soak carryover from a previous window. Valve/master latency beyond the explicit transition and closing-margin parameters is not modeled.
 - **Greedy packing.** It may report `planner_no_fit` even when a different ordering or split could work. `insufficient_on_time` is a lower-bound result when even raw free ON seconds are inadequate. This is not a global optimality claim.
-- **Calendar is a separate helper.** CLI fixtures currently contain resolved integer time intervals; the tested local-time resolver is not automatically invoked by the runner. No real watering restriction is inferred from a location. DST rules are proposed and need review.
+- **Calendar resolution depends on entry point.** The original replay fixtures contain resolved integer intervals. The new `--draft` runner invokes the tested local-time resolver using the form rules and an explicitly supplied named timezone. No real watering restriction is inferred from a location. DST rules are proposed and need review.
 - **Window finalisation.** Promotion tokens expire only when the caller closes the relevant eligible window. Cancelled/ineligible windows must be omitted from that lifecycle. The runner finalises each fixture window once; restart recovery is an in-memory JSON roundtrip, not an active hardware recovery test. Duplicate closure is ignored. A partial planned allocation can earn a token; device failures do not masquerade as capacity skips.
 - **No delivery confirmation integration.** Unknown-delivery markers block confident planning until corrected. The existing bridge/monitor interfaces and firmware queue remain unchanged. A full plan does not establish physical water flow.
 
@@ -55,11 +75,15 @@ The model uses potential crop demand above the threshold and exposes it as a pla
 | `planner.py` | Demand calculation, pulse packing, projection, priority and promotion |
 | `calendar.py` | Explicit calendar rule resolution |
 | `replay.py` | Fixture orchestration and reports |
+| `draft.py`, `engine.py` | Actual UI draft validation, unit conversion and calendar-to-planner orchestration |
 | `tests/` | Numeric, accounting, temporal and lifecycle checks |
 
 ## Validation and remaining acceptance coverage
 
-32 unittest methods pass, including an independent exhaustive feasibility oracle for 1,920 small single-zone packing combinations. The oracle establishes only the empty-window single-zone cases it enumerates, not optimal packing for many valves.
+56 unittest methods pass, including 24 configuration/engine integration checks
+and an independent exhaustive feasibility oracle for 1,920 small single-zone
+packing combinations. The oracle establishes only the empty-window single-zone
+cases it enumerates, not optimal packing for many valves.
 
 Covered wholly or in their stated narrow reference-model form: interrupted/duplicate delivery accounting, unknown evidence, rain-overflow ordering, separate zone balances, full/partial numeric examples, cycle/soak interleaving, priority order, temporary promotion/expiry, minimum pulse rounding, transition/closing margins, and calendar/DST resolution.
 
