@@ -1,0 +1,320 @@
+/* global $ */
+
+/* OpenSprinkler App
+ * Copyright (C) 2015 - present, Samer Albahra. All rights reserved.
+ *
+ * This file is part of the OpenSprinkler project <http://opensprinkler.com>.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License version 3 as
+ * published by the Free Software Foundation.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+// Configure module
+var OSApp = OSApp || {};
+OSApp.Status = OSApp.Status || {};
+
+// Current status related functions
+OSApp.Status.refreshStatus = function( callback ) {
+	callback = callback || function() {};
+	if ( !OSApp.currentSession.isControllerConnected() ) {
+		return;
+	}
+
+	var finish = function() {
+
+		// Notify the page container that the data has refreshed
+		$( "html" ).trigger( "datarefresh" );
+		OSApp.Status.checkStatus();
+		callback();
+	};
+
+	if ( OSApp.Firmware.checkOSVersion( 216 ) ) {
+		OSApp.Sites.updateController( finish, OSApp.Sites.handleControllerRefreshFailure );
+	} else {
+		$.when(
+			OSApp.Sites.updateControllerStatus(),
+			OSApp.Sites.updateControllerSettings(),
+			OSApp.Sites.updateControllerOptions()
+		).then( finish, OSApp.Sites.handleControllerRefreshFailure );
+	}
+};
+
+// Actually change the status bar
+OSApp.Status.changeStatus = function( seconds, color, line, onclick ) {
+	onclick = onclick || function() {};
+	var footer = $( "#footer-running" ),
+		html = "";
+
+	if ( seconds > 1 ) {
+		OSApp.uiState.timers.statusbar = {
+			val: seconds,
+			type: "statusbar",
+			update: function() {
+				$( "#countdown" ).text( "(" + OSApp.Dates.sec2hms( this.val ) + " " + OSApp.Language._( "remaining" ) + ")" );
+			}
+		};
+	}
+
+	if ( OSApp.currentSession.isControllerConnected() && typeof OSApp.currentSession.controller.settings.curr !== "undefined" ) {
+		html += OSApp.Language._( "Current" ) + ": " + OSApp.currentSession.controller.settings.curr + " mA ";
+	}
+
+	if (
+		OSApp.currentSession.isControllerConnected() &&
+		( OSApp.currentSession.controller.options.urs === 2 || OSApp.currentSession.controller.options.sn1t === 2 ) &&
+		typeof OSApp.currentSession.controller.settings.flcrt !== "undefined" &&
+		typeof OSApp.currentSession.controller.settings.flwrt !== "undefined"
+	) {
+		html += "<span style='padding-left:5px'>" + OSApp.Language._( "Flow" ) + ": " + ( OSApp.Utils.flowCountToVolume( OSApp.currentSession.controller.settings.flcrt ) / ( OSApp.currentSession.controller.settings.flwrt / 60 ) ).toFixed( 2 ) + " L/min</span>";
+	}
+
+	if ( html !== "" ) {
+		html = line + "<p class='running-text smaller center'>" + html + "</p>";
+	} else {
+		html = line;
+	}
+
+	footer.removeClass().addClass( color ).html( html ).off( "click" ).on( "click", onclick );
+};
+
+// Update status bar based on device status
+OSApp.Status.checkStatus = function() {
+	var open, ptotal, sample, pid, pname, line, match, tmp, i;
+
+	if ( !OSApp.currentSession.isControllerConnected() ) {
+		OSApp.Status.changeStatus( 0, "transparent", "<p class='running-text smaller'></p>" );
+		return;
+	}
+
+	// Handle controller configured as extender
+	if ( OSApp.currentSession.controller.options.re === 1 ) {
+		OSApp.Status.changeStatus( 0, "blue", "<p class='running-text center pointer'>" + OSApp.Language._( "Configured as Extender" ) + "</p>", function() {
+			OSApp.UIDom.areYouSure( OSApp.Language._( "Do you wish to disable extender mode?" ), "", function() {
+				OSApp.UIDom.showLoading( "#footer-running" );
+				OSApp.Firmware.sendToOS( "/cv?pw=&re=0" ).done( function() {
+					OSApp.Sites.updateController();
+				} );
+			} );
+		} );
+		return;
+	}
+
+	// Handle operation disabled
+	if ( !OSApp.currentSession.controller.settings.en ) {
+		OSApp.Status.changeStatus( 0, "blue", "<p class='running-text center pointer'>" + OSApp.Language._( "System Disabled" ) + "</p>", function() {
+			OSApp.UIDom.areYouSure( OSApp.Language._( "Do you want to re-enable system operation?" ), "", function() {
+				OSApp.UIDom.showLoading( "#footer-running" );
+				OSApp.Firmware.sendToOS( "/cv?pw=&en=1" ).done( function() {
+					OSApp.Sites.updateController();
+				} );
+			} );
+		} );
+		return;
+	}
+
+	// Handle queue paused
+	if ( OSApp.currentSession.controller.settings.pq ) {
+		line = "<p class='running-text center pointer'>" + OSApp.Language._( "Stations Currently Paused" );
+
+		if ( OSApp.currentSession.controller.settings.pt ) {
+			line += " <span id='countdown' class='nobr'>(" + OSApp.Dates.sec2hms( OSApp.currentSession.controller.settings.pt ) + " " + OSApp.Language._( "remaining" ) + ")</span>";
+		}
+
+		line += "</p>";
+
+		OSApp.Status.changeStatus( OSApp.currentSession.controller.settings.pt || 0, "yellow", line, function() {
+			OSApp.UIDom.showPause();
+		} );
+
+		return;
+	}
+
+	// Handle open stations
+	open = {};
+	for ( i = 0; i < OSApp.currentSession.controller.status.length; i++ ) {
+		if ( OSApp.currentSession.controller.status[ i ] && !OSApp.Stations.isMaster( i ) ) {
+			open[ i ] = OSApp.currentSession.controller.status[ i ];
+		}
+	}
+
+	// Handle more than 1 open station
+	if ( Object.keys( open ).length >= 2 ) {
+		ptotal = 0;
+
+		for ( i in open ) {
+			if ( Object.prototype.hasOwnProperty.call(open,  i ) ) {
+				tmp = OSApp.Stations.getRemainingRuntime( i );
+				if ( tmp > ptotal ) {
+					ptotal = tmp;
+				}
+			}
+		}
+
+		sample = Object.keys( open ).find( function( sid ) {
+			return OSApp.Stations.getPID( sid ) > 0;
+		} );
+		pid = typeof sample === "undefined" ? 0 : OSApp.Stations.getPID( sample );
+		pname = pid > 0 ? OSApp.Programs.pidToName( pid ) : OSApp.Language._( "Bundle Station" );
+		line   = "<div><div class='running-icon'></div><div class='running-text pointer'>";
+
+		line += OSApp.Utils.htmlEscape( pname ) + " " + OSApp.Language._( "is running on" ) + " " + Object.keys( open ).length + " " + OSApp.Language._( "stations" ) + " ";
+		if ( ptotal > 0 ) {
+			line += "<span id='countdown' class='nobr'>(" + OSApp.Dates.sec2hms( ptotal ) + " " + OSApp.Language._( "remaining" ) + ")</span>";
+		}
+		line += "</div></div>";
+		OSApp.Status.changeStatus( ptotal, "green", line, OSApp.UIDom.goHome );
+		return;
+	}
+
+	// Handle a single station open
+	match = false;
+	for ( i = 0; i < OSApp.currentSession.controller.stations.snames.length; i++ ) {
+		if ( OSApp.currentSession.controller.settings.ps[ i ] && OSApp.Stations.getPID( i ) && OSApp.Stations.getStatus( i ) && !OSApp.Stations.isMaster( i ) ) {
+			match = true;
+			pid = OSApp.Stations.getPID( i );
+			pname = OSApp.Programs.pidToName( pid );
+			line = "<div><div class='running-icon'></div><div class='running-text pointer'>";
+			line += OSApp.Utils.htmlEscape( pname ) + " " + OSApp.Language._( "is running on station" ) + " <span class='nobr'>" +
+				OSApp.Utils.htmlEscape( OSApp.Stations.getName( i ) ) + "</span> ";
+			if ( OSApp.Stations.getRemainingRuntime( i ) > 0 ) {
+				line += "<span id='countdown' class='nobr'>(" + OSApp.Dates.sec2hms( OSApp.Stations.getRemainingRuntime( i ) ) + " " + OSApp.Language._( "remaining" ) + ")</span>";
+			}
+			line += "</div></div>";
+			break;
+		}
+	}
+
+	if ( match ) {
+		OSApp.Status.changeStatus( OSApp.Stations.getRemainingRuntime( i ), "green", line, OSApp.UIDom.goHome );
+		return;
+	}
+
+	// Show overcurrent fault status
+	if ( OSApp.currentSession.controller.settings.ocs ) {
+		OSApp.Status.changeStatus( 0, "red", "<p class='running-text center pointer'>" + OSApp.Language._( "Overcurrent Fault detected" ) +
+			( OSApp.currentSession.controller.settings.ocs === 255 ? "" : ( OSApp.Language._( " when opening Station " ) + OSApp.currentSession.controller.settings.ocs ) ) + "!</p>",
+			function() {
+				var infoText = OSApp.Language._(
+					"The controller detected one or more zones drawing too much current, exceeding the limit. " +
+					"Please check your wiring and perform a <b>solenoid resistance test</b>. " +
+					"After fixing, you can clear the alert here. " +
+					"For more instructions, visit our support site"
+				) + ": <a href='https://support.opensprinkler.com' target='_blank' rel='noopener'>support.opensprinkler.com</a>.";
+
+				var popup = $(
+					"<div data-role='popup' data-theme='a' class='ocs-popup' id='ocsInfo'>" +
+						"<div class='ui-content ocs-popup-content'>" +
+							"<p class='ocs-text'>" + infoText + "</p>" +
+							"<a href='#' id='ocsClearBtn' class='ui-btn ui-btn-b ui-corner-all ui-shadow'>" +
+								OSApp.Language._('Clear this alert') +
+							"</a>" +
+						"</div>" +
+					"</div>"
+				);
+
+				popup.find( "#ocsClearBtn" ).on( "click", function( e ) {
+					e.preventDefault(); // Prevent link navigation
+					// Show loading indicator inside the popup
+					OSApp.UIDom.showLoading( popup.find( ".ui-content" ) );
+					// Send the command to clear the OCS alert
+					OSApp.Firmware.sendToOS( "/cv?pw=&rocs=1" ).done( function() { // Added pw= for compatibility
+						// On success, close the popup and refresh the status
+						popup.popup( "close" );
+						OSApp.Status.refreshStatus();
+					} ).fail( function() {
+						// On failure, just close the popup and let the user try again
+						popup.popup( "close" );
+						OSApp.Network.networkFail(); // Show a network fail error
+					} );
+				} );
+
+				// Open the popup dialog
+				OSApp.UIDom.openPopup( popup );
+			}
+		);
+		return;
+	}
+
+	// Handle rain delay enabled
+	if ( OSApp.currentSession.controller.settings.rd ) {
+		OSApp.Status.changeStatus( 0, "blue", "<p class='running-text center pointer'>" +
+			OSApp.Language._( "Rain delay until" ) + " " + OSApp.Dates.dateToString( new Date( OSApp.currentSession.controller.settings.rdst * 1000 ) ) + "</p>",
+			function() {
+				OSApp.UIDom.areYouSure( OSApp.Language._( "Do you want to turn off rain delay?" ), "", function() {
+					OSApp.UIDom.showLoading( "#footer-running" );
+					OSApp.Firmware.sendToOS( "/cv?pw=&rd=0" ).done( function() {
+						OSApp.Status.refreshStatus( OSApp.Weather.updateWeather );
+					} );
+				} );
+			}
+		);
+		return;
+	}
+
+	// Tapping a sensor-active footer opens the built-in sensor options.
+	var openSensorOptions = function() {
+		OSApp.UIDom.changePage( "#os-options", { expandItem: "sensors" } );
+	};
+
+	// Build a sensor-active footer message: "{Type} (SN{N}) Activated".
+	var sensorActivatedMsg = function( num, typeCode ) {
+		return "<p class='running-text center pointer'>" + OSApp.Sensors.getBuiltInSensorTypeName( typeCode, true ) + " (SN" + num + ") " + OSApp.Language._( "Activated" ) + "</p>";
+	};
+
+	// Handle rain sensor triggered (legacy urs/rs scheme — sensor 1 only).
+	if ( OSApp.currentSession.controller.options.urs === 1 && OSApp.currentSession.controller.settings.rs === 1 ) {
+		OSApp.Status.changeStatus( 0, "blue", sensorActivatedMsg( 1, 1 ), openSensorOptions );
+		return;
+	}
+
+	// Modern sensor activation flags settings.sn1..sn4, with type from options.sn{N}t.
+	for ( var sni = 1; sni <= 4; sni++ ) {
+		if ( OSApp.currentSession.controller.settings[ "sn" + sni ] === 1 ) {
+			OSApp.Status.changeStatus( 0, "blue", sensorActivatedMsg( sni, OSApp.currentSession.controller.options[ "sn" + sni + "t" ] ), openSensorOptions );
+			return;
+		}
+	}
+
+	// Handle manual mode enabled
+	if ( OSApp.currentSession.controller.settings.mm === 1 ) {
+		OSApp.Status.changeStatus( 0, "blue", "<p class='running-text center pointer'>" + OSApp.Language._( "Manual mode enabled" ) + "</p>", function() {
+			OSApp.UIDom.areYouSure( OSApp.Language._( "Do you want to turn off manual mode?" ), "", function() {
+				OSApp.UIDom.showLoading( "#footer-running" );
+				OSApp.Firmware.sendToOS( "/cv?pw=&mm=0" ).done( function() {
+					OSApp.Sites.updateController();
+				} );
+			} );
+		} );
+		return;
+	}
+
+	// Tapping the idle/last-ran footer: go home from any other page, but
+	// open Edit Options when already on the homepage (more useful next step
+	// than a no-op).
+	var homeOrOptions = function() {
+		if ( $( ".ui-page-active" ).attr( "id" ) === "sprinklers" ) {
+			OSApp.UIDom.changePage( "#os-options" );
+		} else {
+			OSApp.UIDom.goHome();
+		}
+	};
+
+	var lrdur = OSApp.currentSession.controller.settings.lrun[ 2 ];
+
+	// If last run duration is given, add it to the footer
+	if ( lrdur !== 0 ) {
+		var lrpid = OSApp.currentSession.controller.settings.lrun[ 1 ];
+		pname = OSApp.Programs.pidToName( lrpid );
+
+		OSApp.Status.changeStatus( 0, "transparent", "<p class='running-text smaller center pointer'>" + OSApp.Utils.htmlEscape( pname ) + " " + OSApp.Language._( "last ran station" ) + " " +
+		OSApp.Utils.htmlEscape( OSApp.Stations.getName( OSApp.currentSession.controller.settings.lrun[ 0 ] ) ) + " " + OSApp.Language._( "for" ) + " " + ( lrdur / 60 >> 0 ) + "m " + ( lrdur % 60 ) + "s " +
+			OSApp.Language._( "on" ) + " " + OSApp.Dates.dateToString( new Date( ( OSApp.currentSession.controller.settings.lrun[ 3 ] - lrdur ) * 1000 ) ) + "</p>", homeOrOptions );
+		return;
+	}
+
+	OSApp.Status.changeStatus( 0, "transparent", "<p class='running-text smaller center pointer'>" + OSApp.Language._( "System Idle" ) + "</p>", homeOrOptions );
+};

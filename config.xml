@@ -1,0 +1,123 @@
+<?xml version='1.0' encoding='utf-8'?>
+<widget android-versionCode="119" id="com.albahra.sprinklers" version="0.0.0" versionCode="0" xmlns="http://www.w3.org/ns/widgets" xmlns:android="http://schemas.android.com/apk/res/android" xmlns:cdv="http://cordova.apache.org/ns/1.0">
+    <name>OpenSprinkler</name>
+    <description>
+        Designed to allow intuitive control of the OpenSprinkler irrigation controller.
+    </description>
+    <author email="salbahra@gmail.com" href="https://opensprinkler.com/">
+        Samer Albahra
+    </author>
+    <content src="index.html" />
+    <access origin="*" />
+    <allow-intent href="*" />
+    <preference name="WebSecurity" value="disable" />
+    <preference name="KeepRunning" value="false" />
+    <preference name="BackgroundColor" value="0x001c1c1c" />
+    <preference name="DisallowOverscroll" value="true" />
+    <preference name="webviewbounce" value="false" />
+    <preference name="UIWebViewBounce" value="false" />
+    <preference name="HideMousePointer" value="1" />
+    <preference name="WindowSize" value="900x760" />
+    <preference name="EnableWebGL" value="true" />
+    <preference name="AutoHideSplashScreen" value="false" />
+    <preference name="ShowSplashScreenSpinner" value="false" />
+    <preference name="FadeSplashScreen" value="false" />
+    <preference name="KeyboardDisplayRequiresUserAction" value="false" />
+    <preference name="loadUrlTimeoutValue" value="700000" />
+    <platform name="ios">
+        <custom-preference name="ios-XCBuildConfiguration-PRODUCT_BUNDLE_IDENTIFIER[sdk=macosx*]" value="com.albahra.Sprinklers.osx" buildType="release" />
+        <preference name="deployment-target" value="15.0" />
+        <preference name="scheme" value="ionic" />
+        <config-file target="*-Info.plist" parent="NSLocationAlwaysAndWhenInUseUsageDescription">
+            <string>Your current location will be used to configure OpenSprinkler.</string>
+        </config-file>
+        <config-file target="*-Info.plist" parent="NSLocationAlwaysUsageDescription">
+            <string>Your current location will be used to configure OpenSprinkler.</string>
+        </config-file>
+        <config-file target="*-Info.plist" parent="NSLocationWhenInUseUsageDescription">
+            <string>Your current location will be used to configure OpenSprinkler.</string>
+        </config-file>
+        <config-file target="*-Info.plist" parent="NSPhotoLibraryUsageDescription">
+            <string>Your photo library is used to provide an image for your stations.</string>
+        </config-file>
+        <config-file target="*-Info.plist" parent="NSCameraUsageDescription">
+            <string>Your camera is used to provide an image for your stations.</string>
+        </config-file>
+        <config-file target="*-Info.plist" parent="ITSAppUsesNonExemptEncryption">
+            <false/>
+        </config-file>
+        <edit-config target="CFBundleShortVersionString" file="*-Info.plist" mode="overwrite">
+            <string>0</string>
+        </edit-config>
+        <config-file target="*-Info.plist" overwrite="true" parent="LSApplicationCategoryType">
+            <string>public.app-category.utilities</string>
+        </config-file>
+        <splash height="480" src="res/ios/screens/startup.png" width="320" />
+        <splash height="960" src="res/ios/screens/startup-retina.png" width="640" />
+        <splash height="1136" src="res/ios/screens/startup-iphone5-retina.png" width="640" />
+        <splash height="1334" src="res/ios/screens/startup-iphone6-portrait.png" width="750" />
+        <splash height="750" src="res/ios/screens/startup-iphone6-landscape.png" width="1334" />
+        <splash height="2208" src="res/ios/screens/startup-iphone6plus-portrait.png" width="1242" />
+        <splash height="1242" src="res/ios/screens/startup-iphone6plus-landscape.png" width="2208" />
+        <splash height="768" src="res/ios/screens/startup-tablet-landscape.png" width="1024" />
+        <splash height="1024" src="res/ios/screens/startup-tablet-portrait.png" width="768" />
+        <splash height="1536" src="res/ios/screens/startup-tablet-landscape-retina.png" width="2048" />
+        <splash height="2048" src="res/ios/screens/startup-tablet-portrait-retina.png" width="1536" />
+        <splash height="2436" src="res/ios/screens/startup-iphonex-portrait.png" width="1125" />
+        <splash height="1125" src="res/ios/screens/startup-iphonex-landscape.png" width="2436" />
+        <splash height="2732" src="res/ios/screens/startup@2x~universal~anyany.png" width="2732" />
+        <icon height="1024" src="res/ios/icons/icon-1024.png" width="1024" />
+        <icon height="114" src="res/ios/icons/icon@2x.png" width="114" />
+        <icon height="40" src="res/ios/icons/icon-40.png" width="40" />
+        <icon height="80" src="res/ios/icons/icon-40@2x.png" width="80" />
+        <icon height="50" src="res/ios/icons/icon-50.png" width="50" />
+        <icon height="100" src="res/ios/icons/icon-50@2x.png" width="100" />
+        <icon height="60" src="res/ios/icons/icon-60.png" width="60" />
+        <icon height="167" src="res/ios/icons/icon-83.5@2x.png" width="167" />
+        <icon height="29" src="res/ios/icons/icon-small.png" width="29" />
+        <icon height="58" src="res/ios/icons/icon-small@2x.png" width="58" />
+        <icon height="87" src="res/ios/icons/icon-small@3x.png" width="87" />
+        <icon height="57" src="res/ios/icons/icon-57.png" width="57" />
+        <icon height="120" src="res/ios/icons/icon-60@2x.png" width="120" />
+        <icon height="180" src="res/ios/icons/icon-60@3x.png" width="180" />
+        <icon height="72" src="res/ios/icons/icon-72.png" width="72" />
+        <icon height="144" src="res/ios/icons/icon-72@2x.png" width="144" />
+        <icon height="76" src="res/ios/icons/icon-76.png" width="76" />
+        <icon height="152" src="res/ios/icons/icon-76@2x.png" width="152" />
+    </platform>
+    <platform name="android">
+        <edit-config file="AndroidManifest.xml" mode="merge" target="/manifest/application">
+            <application android:usesCleartextTraffic="true"
+                android:networkSecurityConfig="@xml/network_security_config" />
+        </edit-config>
+        <resource-file src="res/android/network_security_config.xml" target="app/src/main/res/xml/network_security_config.xml" />
+        <config-file target="AndroidManifest.xml" parent="queries">
+            <intent>
+                <action android:name="android.media.action.IMAGE_CAPTURE" />
+            </intent>
+            <intent>
+                <action android:name="android.intent.action.GET_CONTENT" />
+            </intent>
+        </config-file>
+        <config-file target="AndroidManifest.xml" parent="/manifest/application">
+            <provider android:authorities="${applicationId}.sharing.provider"
+                android:exported="false"
+                android:grantUriPermissions="true"
+                android:name="nl.xservices.plugins.FileProvider">
+                <meta-data android:name="android.support.FILE_PROVIDER_PATHS"
+                    android:resource="@xml/sharing_paths" />
+            </provider>
+        </config-file>
+        <preference name="Scheme" value="http" />
+        <preference name="android-minSdkVersion" value="24" />
+        <preference name="android-targetSdkVersion" value="36" />
+        <preference name="android-theme" value="@android:style/Theme.Holo.Light.NoActionBar" />
+        <preference name="AndroidWindowSplashScreenAnimatedIcon" value="res/android/screens/splash.png" />
+        <preference name="AndroidWindowSplashScreenBackground" value="#1c1c1c" />
+        <icon density="ldpi" src="res/android/icons/ldpi.png" />
+        <icon density="mdpi" src="res/android/icons/mdpi.png" />
+        <icon density="hdpi" src="res/android/icons/hdpi.png" />
+        <icon density="xhdpi" src="res/android/icons/xhdpi.png" />
+        <icon density="xxhdpi" src="res/android/icons/xxhdpi.png" />
+    </platform>
+</widget>
