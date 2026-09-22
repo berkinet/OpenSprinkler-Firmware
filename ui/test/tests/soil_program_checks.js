@@ -49,11 +49,13 @@ describe("Soil-water program drafts", function () {
 	it("saves default hours without changing programs or sending controller options", function () {
 		var box = $("<div id='soil-settings'></div>").appendTo($.mobile.pageContainer);
 		OSApp.SoilPrograms.defaultHoursControl(box);
+		var bubbled = sinon.spy(); box.parent().one("change.hoursTest", bubbled);
 		$("#soil-default-hours-mode").val("custom").trigger("change");
 		$("#soil-default-hours-start").val("22:00"); $("#soil-default-hours-end").val("06:00");
 		box.find("button").trigger("click");
 		assert.deepEqual(OSApp.SoilPrograms.load().defaultHours, {mode:"custom", start:"22:00", end:"06:00"});
 		assert.deepEqual(OSApp.SoilPrograms.load().programs, []);
+		assert.isFalse(bubbled.called); box.parent().off("change.hoursTest");
 		assert.equal(box.find(":input:not(.noselect)").length, 0);
 		assert.isFalse(OSApp.Firmware.sendToOS.called);
 	});

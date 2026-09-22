@@ -129,6 +129,7 @@ OSApp.SoilPrograms.defaultHoursControl = function( parent ) {
 		} catch ( e ) { OSApp.Errors.showError( e.message ); }
 	} ), status );
 	parent.find( ":input" ).addClass( "noselect" );
+	parent.on( "change input", function( event ) { event.stopPropagation(); } );
 };
 OSApp.SoilPrograms.displayPage = function() {
 	var page = OSApp.SoilPrograms.page( "programs", OSApp.Language._( "Programs" ), "#sprinklers", null, {
