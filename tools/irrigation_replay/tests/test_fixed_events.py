@@ -21,6 +21,40 @@ class FixedEventsTests(unittest.TestCase):
     def decision(self):
         return dry_run(self.draft, self.runtime)['decisions'][0]
 
+    def test_v3_no_restrictions_needs_no_second_window(self):
+        self.draft['version'] = 3
+        self.draft['windows'] = []
+        self.assertEqual(self.decision()['status'], 'full')
+        self.draft['excluded'] = '2026-09-21'
+        self.assertEqual(dry_run(self.draft, self.runtime)['status'], 'outside_watering_window')
+
+    def test_night_event_can_cross_midnight_without_an_artificial_stop(self):
+        self.draft.update(version=3, windows=[], defaultHours={'mode': 'night'})
+        self.runtime.update(as_of='2026-09-21T23:58:00Z', location=dict(latitude=42.36, longitude=-71.06))
+        self.runtime['states']['0'].update(at=self.runtime['as_of'], ready_at=self.runtime['as_of'])
+        self.runtime['next_service']['0'] = '2026-09-22T23:58:00Z'
+        self.runtime['weather']['periods'] = [dict(start=self.runtime['as_of'], end=self.runtime['next_service']['0'], eto=13.8)]
+        self.runtime['resource']['closing_margin_seconds'] = 60
+        d = self.decision()
+        self.assertEqual(d['status'], 'full')
+        self.assertTrue(d['pulses'][-1]['local_end'].startswith('2026-09-22'))
+        self.assertEqual(d['elapsed_seconds'], 540)
+
+    def test_night_calculation_limits_pulses_and_requires_location(self):
+        self.draft['version'] = 3
+        self.draft['defaultHours'] = {'mode': 'night'}
+        with self.assertRaisesRegex(InputErrors, 'runtime.location'):
+            self.decision()
+        self.runtime['location'] = dict(latitude=48.8566, longitude=2.3522)
+        # At 06:00 UTC in Paris in September, sunrise has passed.
+        with self.assertRaisesRegex(InputErrors, 'within program permitted hours'):
+            self.decision()
+        # Boston is still in darkness at 06:00 UTC on these dates.
+        self.runtime['location'] = dict(latitude=42.36, longitude=-71.06)
+        self.assertEqual(self.decision()['status'], 'full')
+        self.runtime['location']['latitude'] = 100
+        with self.assertRaises(InputErrors): self.decision()
+
     def test_permitted_hours_inherit_override_and_soak_fit(self):
         self.draft['windows'][0]['end'] = '06:30'
         self.draft['defaultHours'] = dict(mode='custom', start='06:00', end='06:08')

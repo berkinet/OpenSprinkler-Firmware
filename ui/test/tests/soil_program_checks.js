@@ -26,16 +26,40 @@ describe("Soil-water program drafts", function () {
 		OSApp.currentSession.ip = oldIP;
 		sandbox.restore();
 	});
+	it("offers exactly two hours choices and saves Night only without fixed times", function () {
+		OSApp.SoilPrograms.editPage();
+		assert.deepEqual($("#soil-hours-mode option").map(function(){return $(this).text();}).get(), ["No restrictions", "Set allowed hours"]);
+		$("#soil-hours-inherit").prop("checked", false).trigger("change");
+		$("#soil-hours-mode").val("custom").trigger("change");
+		$("#soil-hours-kind").val("night").trigger("change");
+		header.rightBtn.on();
+		assert.deepEqual(OSApp.SoilPrograms.load().programs[0].permittedHours, {mode:"night"});
+		OSApp.SoilPrograms.editPage(0);
+		assert.equal($("#soil-hours-kind").val(), "night");
+	});
+	it("calculates a dated sunset-to-next-sunrise preview and handles missing location", function () {
+		var coords = OSApp.currentSession.coordinates;
+		try {
+			OSApp.currentSession.coordinates = [48.8566, 2.3522];
+			OSApp.currentSession.controller.options.tz = 56;
+			OSApp.currentSession.controller.settings = {devt: Date.UTC(2026,8,22,12)/1000};
+			assert.include(OSApp.SoilPrograms.nightPreview(), "2026-09-22 19:");
+			assert.include(OSApp.SoilPrograms.nightPreview(), "2026-09-23 07:");
+			OSApp.currentSession.coordinates = undefined;
+			assert.include(OSApp.SoilPrograms.nightPreview(), "Set the controller location");
+		} finally { OSApp.currentSession.coordinates = coords; }
+	});
 	it("inherits default hours and persists explicit overnight overrides", function () {
 		var data = OSApp.SoilPrograms.load();
 		data.defaultHours = {mode: "custom", start: "22:00", end: "06:00"};
 		OSApp.SoilPrograms.save(data);
 		OSApp.SoilPrograms.editPage();
-		assert.equal($("#soil-hours-mode").val(), "inherit");
-		assert.include($("#soil-hours-mode option:selected").text(), "22:00 - 06:00");
+		assert.isTrue($("#soil-hours-inherit").prop("checked"));
+		assert.include($("label[for=soil-hours-inherit]").text(), "22:00 - 06:00");
 		header.rightBtn.on();
 		assert.deepEqual(OSApp.SoilPrograms.load().programs[0].permittedHours, {mode: "inherit"});
 		OSApp.SoilPrograms.editPage(0);
+		$("#soil-hours-inherit").prop("checked", false).trigger("change");
 		$("#soil-hours-mode").val("custom").trigger("change");
 		$("#soil-hours-start").val("23:00"); $("#soil-hours-end").val("05:00");
 		header.rightBtn.on();
@@ -280,7 +304,7 @@ describe("Soil-water program drafts", function () {
 		$("#soil-minimum").val(30);
 		header.rightBtn.on();
 		var saved = JSON.parse(OSApp.SoilPrograms.exportDraft());
-		assert.equal(saved.version, 2);
+		assert.equal(saved.version, 3);
 		assert.equal(saved.programs[0].amountMode, "runtime");
 		assert.equal(saved.programs[0].runtime, 5);
 		assert.equal(saved.programs[0].rate, "");

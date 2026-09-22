@@ -1,4 +1,4 @@
-/* global $ */
+/* global $, SunCalc */
 /* OpenSprinkler App \u2014 AGPL-3.0; see ui/LICENSE. */
 var OSApp = OSApp || {};
 OSApp.SoilPrograms = OSApp.SoilPrograms || {};
@@ -12,12 +12,12 @@ OSApp.SoilPrograms.load = function() {
 	var raw = OSApp.Storage.getItemSync( OSApp.SoilPrograms.storageKey() );
 	if ( raw ) {
 		var data = JSON.parse( raw );
-		if ( ![ 1, 2 ].includes( data.version ) || !Array.isArray( data.programs ) || !Array.isArray( data.groups ) ) {
+		if ( ![ 1, 2, 3 ].includes( data.version ) || !Array.isArray( data.programs ) || !Array.isArray( data.groups ) ) {
 			throw new Error( "Unsupported soil-water draft. Stored data has not been changed." );
 		}
 		return data;
 	}
-	return { version: 1, programs: [], groups: [ "Normal" ], windows: [], excluded: "", shortage: "report_only", profile: {} };
+	return { version: 3, programs: [], groups: [ "Normal" ], windows: [], excluded: "", shortage: "report_only", profile: {} };
 };
 OSApp.SoilPrograms.save = function( data ) {
 	OSApp.Storage.setItemSync( OSApp.SoilPrograms.storageKey(), JSON.stringify( data ) );
@@ -90,27 +90,60 @@ OSApp.SoilPrograms.select = function( parent, id, label, items, value ) {
 	if ( value !== undefined ) { select.val( String( value ) ); }
 	return select;
 };
-// Shared daily-hours control; site legal windows always remain authoritative.
+// Night uses dated astronomical events, never the firmware's default 06:00/18:00.
+OSApp.SoilPrograms.nightPreview = function() {
+	var coords = OSApp.currentSession.coordinates, settings = OSApp.currentSession.controller.settings || {},
+		offset = OSApp.Dates.getTimezoneOffsetOS(), clock = new Date( settings.devt * 1000 );
+	if ( !Array.isArray( coords ) || coords.length !== 2 || !coords.every( Number.isFinite ) || Math.abs( coords[ 0 ] ) > 90 || Math.abs( coords[ 1 ] ) > 180 || !Number.isFinite( clock.valueOf() ) || !Number.isFinite( offset ) ) {
+		return "Set the controller location, date and timezone to calculate night hours.";
+	}
+	// devt is the controller's local wall clock encoded as epoch seconds.
+	var noon = Date.UTC( clock.getUTCFullYear(), clock.getUTCMonth(), clock.getUTCDate(), 12 ) - offset * 60000,
+		sunset = SunCalc.getTimes( new Date( noon ), coords[ 0 ], coords[ 1 ] ).sunset,
+		sunrise = SunCalc.getTimes( new Date( noon + 86400000 ), coords[ 0 ], coords[ 1 ] ).sunrise;
+	if ( !Number.isFinite( sunset.valueOf() ) || !Number.isFinite( sunrise.valueOf() ) || sunrise <= sunset ) {
+		return "Sunrise or sunset is unavailable for this date and location. Night-only watering cannot be planned until valid times are available.";
+	}
+	function local( date ) {
+		return new Date( date.valueOf() + offset * 60000 ).toISOString().slice( 0, 16 ).replace( "T", " " );
+	}
+	return "Calculated night: " + local( sunset ) + " to " + local( sunrise ) + " (controller local time). Recalculated for each date. Preview uses the controller's current timezone offset.";
+};
 OSApp.SoilPrograms.hoursSummary = function( value ) {
-	return value && value.mode === "custom" ? value.start + " - " + value.end : "Any time within legal watering windows";
+	if ( value && value.mode === "night" ) { return "Night only (sunset to sunrise)"; }
+	return value && value.mode === "custom" ? value.start + " - " + value.end : "No restrictions";
 };
 OSApp.SoilPrograms.hoursControl = function( parent, id, value, inherited ) {
 	value = value || { mode: inherited === undefined ? "all" : "inherit" };
-	var choices = [ { value: "all", label: "Any time within legal watering windows" }, { value: "custom", label: "Set permitted hours" } ];
-	if ( inherited !== undefined ) { choices.unshift( { value: "inherit", label: "Use default: " + OSApp.SoilPrograms.hoursSummary( inherited ) } ); }
-	var mode = OSApp.SoilPrograms.select( parent, id + "-mode", "Permitted hours", choices, value.mode ),
-		box = $( "<div></div>" ).appendTo( parent ),
-		start = OSApp.SoilPrograms.field( box, id + "-start", "From", value.start, "time" ),
-		end = OSApp.SoilPrograms.field( box, id + "-end", "Until", value.end, "time" );
-	parent.append( "<p class='small'>Controller local time, every day. An end before the start crosses midnight. All watering pulses must finish within permitted hours and site legal windows; excluded dates still apply.</p>" );
-	function visibility() { box.toggle( mode.val() === "custom" ); }
-	mode.on( "change", visibility ); visibility();
+	var inherit;
+	if ( inherited !== undefined ) {
+		var row = $( "<div class='ui-field-contain'></div>" ).appendTo( parent );
+		inherit = $( "<input type='checkbox' data-mini='true'>" ).attr( "id", id + "-inherit" ).prop( "checked", value.mode === "inherit" ).appendTo( row );
+		$( "<label></label>" ).attr( "for", id + "-inherit" ).text( "Use default: " + OSApp.SoilPrograms.hoursSummary( inherited ) ).appendTo( row );
+	}
+	var effective = value.mode === "inherit" ? inherited : value,
+		controls = $( "<div></div>" ).appendTo( parent ),
+		mode = OSApp.SoilPrograms.select( controls, id + "-mode", "Watering hours", [ { value: "all", label: "No restrictions" }, { value: "custom", label: "Set allowed hours" } ], effective.mode === "all" ? "all" : "custom" ),
+		box = $( "<div></div>" ).appendTo( controls ),
+		kind = OSApp.SoilPrograms.select( box, id + "-kind", "Allowed hours", [ { value: "custom", label: "Choose times" }, { value: "night", label: "Night only" } ], effective.mode === "night" ? "night" : "custom" ),
+		times = $( "<div></div>" ).appendTo( box ),
+		start = OSApp.SoilPrograms.field( times, id + "-start", "From", effective.start, "time" ),
+		end = OSApp.SoilPrograms.field( times, id + "-end", "Until", effective.end, "time" ),
+		night = $( "<p class='small'></p>" ).text( "Sunset to the following sunrise. " + OSApp.SoilPrograms.nightPreview() ).appendTo( box );
+	parent.append( "<p class='small'>Controller local time. An end before the start crosses midnight. Every watering pulse must finish within allowed hours. Any separately configured calendar restrictions and excluded dates still apply.</p>" );
+	function visibility() {
+		controls.toggle( !inherit || !inherit.prop( "checked" ) );
+		box.toggle( mode.val() === "custom" ); times.toggle( kind.val() !== "night" ); night.toggle( kind.val() === "night" );
+	}
+	if ( inherit ) { inherit.on( "change", visibility ); }
+	mode.add( kind ).on( "change", visibility ); visibility();
 	return function() {
-		var result = { mode: mode.val() };
+		if ( inherit && inherit.prop( "checked" ) ) { return { mode: "inherit" }; }
+		var result = { mode: mode.val() === "all" ? "all" : kind.val() };
 		if ( result.mode === "custom" ) {
 			result.start = start.val(); result.end = end.val();
 			if ( ![ result.start, result.end ].every( function( t ) { return /^(?:[01][0-9]|2[0-3]):[0-5][0-9]$/.test( t ); } ) || result.start === result.end ) {
-				throw new Error( "Enter distinct permitted start and end times, or select Any time." );
+				throw new Error( "Enter distinct allowed start and end times, or select No restrictions." );
 			}
 		}
 		return result;
@@ -119,13 +152,13 @@ OSApp.SoilPrograms.hoursControl = function( parent, id, value, inherited ) {
 OSApp.SoilPrograms.defaultHoursControl = function( parent ) {
 	var data;
 	try { data = OSApp.SoilPrograms.load(); } catch ( e ) { parent.append( $( "<p></p>" ).text( e.message ) ); return; }
-	parent.append( "<h3>Default permitted hours</h3><p class='small'>Programs using the default follow later changes automatically. Saved as a browser-local draft.</p>" );
+	parent.append( "<h3>Default watering hours</h3><p class='small'>Programs using the default follow later changes automatically. Saved as a browser-local draft.</p>" );
 	var read = OSApp.SoilPrograms.hoursControl( parent, "soil-default-hours", data.defaultHours ), status = $( "<p role='status'></p>" );
 	parent.append( $( "<button type='button' class='ui-btn ui-mini noselect'>Save default hours draft</button>" ).on( "click", function() {
 		try {
 			var hours = read(), latest = OSApp.SoilPrograms.load();
-			latest.version = 2; latest.defaultHours = hours; OSApp.SoilPrograms.save( latest );
-			status.text( "Default permitted hours saved." );
+			latest.version = 3; latest.defaultHours = hours; OSApp.SoilPrograms.save( latest );
+			status.text( "Default watering hours saved." );
 		} catch ( e ) { OSApp.Errors.showError( e.message ); }
 	} ), status );
 	parent.find( ":input" ).addClass( "noselect" );
@@ -186,7 +219,7 @@ OSApp.SoilPrograms.editPage = function( sid ) {
 			return OSApp.Errors.showError( "Runtime per watering cannot be shorter than the minimum useful pulse." );
 		}
 		if ( equipment ) { result.equipment = equipment; }
-		data.version = 2;
+		data.version = 3;
 		data.programs = data.programs.filter( function( p ) { return p.sid !== originalSid; } ).concat( [ result ] );
 		try { OSApp.SoilPrograms.save( data ); } catch ( e ) { return OSApp.Errors.showError( "Could not save draft: " + e.message ); }
 		OSApp.UIDom.changePage( "#programs" );
@@ -207,7 +240,7 @@ OSApp.SoilPrograms.editPage = function( sid ) {
 	fields.enabled = body.find( "#soil-enabled" );
 	OSApp.SoilPrograms.select( body, "soil-profile", "Site profile", [ { value: "garden", label: "Garden (shared)" } ], "garden" );
 	fields.group = OSApp.SoilPrograms.select( body, "soil-group", "Priority group", data.groups.map( function( g ) { return { value: g, label: g }; } ), program.group );
-	body.append( "<h2>Permitted watering hours</h2>" );
+	body.append( "<h2>Watering hours</h2>" );
 	readHours = OSApp.SoilPrograms.hoursControl( $( "<div></div>" ).appendTo( body ), "soil-hours", program.permittedHours, data.defaultHours || { mode: "all" } );
 	body.append( "<h2>Watering amount</h2><p class='small'>Weather changes when watering is due. The configured full event stays constant. Unknown values may remain blank in a draft.</p>" );
 	var modes = [ { value: "runtime", label: "Minutes per watering (assumed refill)" }, { value: "depth", label: "Water depth per watering" } ];
@@ -288,14 +321,14 @@ OSApp.SoilPrograms.settingsPage = function() {
 			values[ key ] = raw === "" ? "" : n;
 		}
 		try { data = OSApp.SoilPrograms.load(); } catch ( e ) { return OSApp.Errors.showError( e.message ); }
-		data.windows = rules; data.excluded = dates.join( "\n" ); data.shortage = shortage.val(); data.profile = values;
+		data.version = 3; data.windows = rules; data.excluded = dates.join( "\n" ); data.shortage = shortage.val(); data.profile = values;
 		try { OSApp.SoilPrograms.save( data ); } catch ( e ) { return OSApp.Errors.showError( "Could not save draft: " + e.message ); }
 		OSApp.Errors.showError( "Shared draft saved in this browser." );
 	}
 	page = OSApp.SoilPrograms.page( "soil-settings", "Soil-water settings", "#os-options", save );
 	var body = page.find( "main" );
 	try { data = OSApp.SoilPrograms.load(); } catch ( e ) { body.append( $( "<p></p>" ).text( e.message ) ); return; }
-	body.append( "<h2>Legal watering windows</h2><p>Shared by all soil-water programs. No windows means no automatic watering. Times use controller local time. A closing time before opening crosses midnight; exclusions override windows.</p>" );
+	body.append( "<h2>Optional calendar restrictions</h2><p>Shared by all soil-water programs. Leave empty for no additional calendar restrictions. Add windows only to restrict watering to particular weekdays and times. Times use controller local time; exclusions always apply. A closing time before opening crosses midnight.</p>" );
 	windows = $( "<div></div>" ).appendTo( body );
 	var nextWindow = 0;
 	function addWindow( rule ) {
@@ -312,6 +345,7 @@ OSApp.SoilPrograms.settingsPage = function() {
 		$( "<button class='ui-btn ui-mini'>Remove window</button>" ).appendTo( row ).on( "click", function() { row.remove(); } );
 		if ( page.hasClass( "ui-page" ) ) { row.enhanceWithin(); }
 	}
+	if ( data.version < 3 && !data.windows.length ) { body.append( "<p>Legacy draft: watering remains blocked until you save these settings. Saving an empty calendar now means no calendar restrictions.</p>" ); }
 	data.windows.forEach( addWindow );
 	body.append( $( "<button class='ui-btn'>Add watering window</button>" ).on( "click", function() { addWindow( {} ); } ) );
 	body.append( "<label for='soil-excluded'>Excluded dates (YYYY-MM-DD, one per line)</label>" );

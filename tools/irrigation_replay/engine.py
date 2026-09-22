@@ -4,10 +4,11 @@ Consumes an exported UI draft and an explicit reconciled runtime snapshot.
 Future service times are assumptions, not reservations solved by this increment.
 """
 from dataclasses import asdict
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from .calendar import normalize, resolve_calendar
+from .solar import night_intervals
 from .draft import InputErrors, Validator, compile_draft, quantity, shape, text
 from .model import integer, number
 from .planner import ETPeriod, Window, plan
@@ -80,7 +81,7 @@ def dry_run(draft, runtime):
     v = Validator()
     v.get('runtime', lambda: shape(runtime, ('schema_version', 'as_of', 'timezone',
           'calendar_through', 'eligible_station_sids', 'resource', 'states',
-          'next_service', 'weather', 'promoted_sids')))
+          'next_service', 'weather', 'promoted_sids', 'location')))
     v.finish()
     if type(runtime.get('schema_version')) is not int or runtime['schema_version'] != 1:
         raise InputErrors([dict(path='runtime.schema_version', message='unsupported runtime version')])
@@ -110,14 +111,40 @@ def dry_run(draft, runtime):
     intervals = normalize([interval for days, start, end in config.rules
         for interval in resolve_calendar(runtime['timezone'], first.isoformat(), through.isoformat(),
                                           days, [(start, end)], config.excluded)])
+    # v3 makes an empty calendar unrestricted. Preserve v1/v2 fail-closed drafts.
+    if not config.rules and draft['version'] >= 3:
+        intervals = []
+        day = first
+        while day <= through:
+            intervals.extend(resolve_calendar(runtime['timezone'], day.isoformat(), day.isoformat(),
+                                               range(7), [(0, 1440)], config.excluded))
+            day += timedelta(days=1)
+    calendar_margin = margin if config.rules or draft['version'] < 3 else 0
     zone_intervals = {}
+    nights = None
+    if 'night' in config.hours.values():
+        nights = v.get('runtime.location', lambda: night_intervals(runtime['timezone'], first, through, runtime.get('location')))
+        v.finish()
     for zone in config.zones:
         hours = config.hours[zone.id]
-        daily = resolve_calendar(runtime['timezone'], first.isoformat(), through.isoformat(),
-                                 range(7), [hours]) if hours is not None else intervals
-        zone_intervals[zone.id] = normalize([(max(a, c), min(b-margin, d))
-            for a, b in intervals for c, d in daily if max(a, c) < min(b-margin, d)])
-    current = next(((a, b) for a, b in intervals if a <= now < b-margin), None)
+        if hours == 'night':
+            daily = nights
+        elif hours is None:
+            daily = intervals
+        else:
+            daily = resolve_calendar(runtime['timezone'], first.isoformat(), through.isoformat(), range(7), [hours])
+        # Keep planning-day boundaries; do not merge unrestricted consecutive days.
+        zone_intervals[zone.id] = [(max(a, c), min(b-calendar_margin, d))
+            for a, b in intervals for c, d in daily if max(a, c) < min(b-calendar_margin, d)]
+    planning_intervals = intervals
+    if not config.rules and draft['version'] >= 3:
+        # Night intervals stay continuous across midnight. A fully unrestricted
+        # schedule uses a rolling 24-hour planning horizon rather than infinity.
+        zone_intervals = {z: normalize(items) for z, items in zone_intervals.items()}
+        planning_intervals = normalize([item for items in zone_intervals.values() for item in items])
+    current = next(((a, b) for a, b in planning_intervals if a <= now < b-margin), None)
+    if current and not config.rules and draft['version'] >= 3:
+        current = (current[0], min(current[1], now+86400))
     result = dict(schema_version=1, mode='offline_no_controller_io',
         automatic_watering_enabled=False, as_of=runtime['as_of'], timezone=runtime['timezone'],
         disabled_programs=list(config.disabled),
@@ -132,7 +159,7 @@ def dry_run(draft, runtime):
     if not config.zones:
         return dict(result, status='no_enabled_programs', decisions=[])
     if current is None:
-        following = next((a for a, b in intervals if a > now and b-a > margin), None)
+        following = next((a for a, b in planning_intervals if a > now and b-a > margin), None)
         return dict(result, status='outside_watering_window', next_opening=following, decisions=[])
     window = Window(f'window:{current[0]}:{current[1]}', now, current[1], transition, margin)
     periods = v.get('runtime.weather', lambda: weather_periods(runtime.get('weather')))
@@ -159,7 +186,7 @@ def dry_run(draft, runtime):
             path = f'runtime.next_service.{sid}'
             future = v.get(path, lambda: timestamp(future_raw.get(sid)))
             if future is not None:
-                if not any(a >= current[1] and a <= future and future+zone.minimum_pulse_seconds <= b
+                if not any(future >= current[1] and a <= future and future+zone.minimum_pulse_seconds <= b-(margin-calendar_margin)
                            for a, b in zone_intervals[zone.id]):
                     v.issues.append(dict(path=path, message='service must fit at least a minimum pulse in a later legal window within program permitted hours'))
                 if ready.get(zone.id) is not None and future < ready[zone.id]:

@@ -370,3 +370,32 @@ allocation. Calendar resolution reuses the existing timezone/DST handling.
 
 This remains an editor/offline implementation. Controller persistence and live
 execution are not connected; automatic watering stays paused in the new mode.
+
+
+## 22 September 2026 — simplified hours and Night only (supersedes above)
+
+The hours menu now contains exactly **No restrictions** and **Set allowed hours**.
+The latter offers **Choose times** and **Night only**. Programs have a separate
+**Use default** checkbox. Night means sunset to the following date's sunrise,
+recalculated by location and date, not fixed 18:00–06:00 or twilight boundaries.
+The UI reuses bundled SunCalc and displays tonight's dates/times using the
+controller wall-clock date, coordinates and current UTC offset. A future DST
+change is resolved by the offline engine's named timezone; the preview uses the
+controller's current offset. Missing coordinates or solar events produce an
+explicit unavailable message, never invented solar times.
+
+Draft v3 removes the mandatory second calendar: an empty optional calendar means
+no calendar restriction. Explicit windows and exclusions still constrain all
+programs. Old v1/v2 drafts retain empty-calendar blocking until saved as v3; the
+settings page explains this migration. New/default/program/settings saves use
+v3. `permittedHours`/`defaultHours` now additionally accept `{ "mode": "night" }`.
+The offline runtime supplies `location` with numeric `latitude` and `longitude`
+when Night only is used. The Python solar module uses the same SunCalc formulas,
+with its BSD notice retained. Cross-language fixtures cover normal and DST dates.
+Polar missing-event cases explicitly block this initial implementation.
+
+Without explicit calendar windows, the offline planner uses the union of actual
+allowed intervals and keeps nights continuous across midnight. Unrestricted
+continuous time uses a rolling 24-hour planning horizon. Future service remains
+caller supplied and capacity-unverified. Browser drafts and offline planning are
+implemented; live automatic watering remains paused.

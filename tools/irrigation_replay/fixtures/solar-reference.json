@@ -1,0 +1,26 @@
+[
+  {
+    "date": "2026-09-22",
+    "timezone": "Europe/Paris",
+    "latitude": 48.8566,
+    "longitude": 2.3522,
+    "sunrise": 1790055476.604,
+    "sunset": 1790099494.056
+  },
+  {
+    "date": "2026-03-29",
+    "timezone": "Europe/Paris",
+    "latitude": 48.8566,
+    "longitude": 2.3522,
+    "sunrise": 1774762578.905,
+    "sunset": 1774808214.493
+  },
+  {
+    "date": "2026-10-25",
+    "timezone": "Europe/Paris",
+    "latitude": 48.8566,
+    "longitude": 2.3522,
+    "sunrise": 1792909623.251,
+    "sunset": 1792946680.645
+  }
+]

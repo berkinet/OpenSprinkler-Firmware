@@ -1,4 +1,4 @@
-"""Compile browser v1/v2 drafts into the offline engine's configuration.
+"""Compile browser v1/v2/v3 drafts into the offline engine's configuration.
 
 No controller reads, defaults for missing calibration, or runtime state writes.
 Paths in errors refer to exported form fields so configuration gaps are visible.
@@ -92,10 +92,10 @@ def permitted_hours(value, inherited=None):
         return inherited
     shape(value, ('mode', 'start', 'end'))
     mode = value.get('mode')
-    if mode in ('all', 'inherit'):
+    if mode in ('all', 'inherit', 'night'):
         if set(value) != {'mode'}:
             raise ValueError('inactive hours must not contain times')
-        return inherited if mode == 'inherit' else None
+        return inherited if mode == 'inherit' else ('night' if mode == 'night' else None)
     if mode != 'custom':
         raise ValueError('unknown permitted hours mode')
     start, end = minute(value.get('start')), minute(value.get('end'))
@@ -123,7 +123,7 @@ def compile_draft(draft):
     v.get('draft', lambda: shape(draft, ('version', 'programs', 'groups', 'windows',
                                         'excluded', 'shortage', 'profile', 'defaultHours')))
     v.finish()
-    if type(draft.get('version')) is not int or draft['version'] not in (1, 2):
+    if type(draft.get('version')) is not int or draft['version'] not in (1, 2, 3):
         raise InputErrors([dict(path='version', message='unsupported draft version')])
     groups = draft.get('groups')
     def group_names():
