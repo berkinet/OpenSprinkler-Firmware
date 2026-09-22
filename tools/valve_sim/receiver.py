@@ -9,8 +9,9 @@ from urllib.parse import urlsplit
 from uuid import uuid4
 
 
-def serve(log_path):
+def serve(log_path, zones=0):
     state = {"lt": False, "rm": False}
+    state.update({f"zone{i}": False for i in range(1, zones+1)})
     events = deque(maxlen=10000)
     session = str(uuid4())
     sequence = 0
@@ -54,4 +55,6 @@ def serve(log_path):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--log", type=Path, required=True)
-    serve(parser.parse_args().log)
+    parser.add_argument("--zones", type=int, choices=range(0, 201), default=0, metavar="0..200")
+    args = parser.parse_args()
+    serve(args.log, args.zones)

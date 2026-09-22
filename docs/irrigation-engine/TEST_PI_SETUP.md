@@ -138,3 +138,34 @@ choice persists on the controller; the new program and shared-settings drafts
 are stored only in the browser. Standard timed programs are suspended in this
 mode. The actual soil-water scheduler remains unimplemented. See
 [UI_DEVELOPMENT.md](UI_DEVELOPMENT.md) for the complete boundary and controls.
+
+## 22 September — production-shaped station import
+
+Owner supplied an OS export for a shadow copy on the dedicated test Pi. Only
+selected fields are used; the raw export, exact site coordinates, device
+identifiers and bridge token are not checked into this public repository.
+The export describes 16 slots, 10 enabled stations and 9 standard programs.
+Two programs target the same valve, while two enabled stations have no standard
+program. Automatic conversion into one soil-water program per valve is therefore
+not assumed.
+
+The simulator now supports numbered zones, and the development binary adds
+`DEMO_VALVE_SIM_ONLY` to enforce loopback-only valve destinations independently
+of station configuration. All imported slots, including disabled ones, use
+numbered simulator URLs. Location, timezone offset, station delay, names, groups
+and enable masks are carried over. Network/UI service addresses, notification
+credentials, device identity and production bridge URLs are not imported.
+Weather/soil initialization and persistent new-engine dispatch remain separate.
+Existing browser-local soil drafts are not part of the OS backup and are not
+overwritten by this import; their old station assignments need review.
+
+Import readback passed: 16 names, 10 enabled stations, all 16 HTTP simulator
+routes, and all 9 standard program definitions match the sanitized input.
+The original data and binary were backed up under
+`/home/codex/irrigation-build-records/before-shadow-*` before replacement.
+Both transient services were recreated after stopping them (systemd removes
+stopped transient definitions); the receiver uses `--zones 16`.
+The C++ guard tests and complete isolated firmware build passed. No valve
+start commands were issued. Soil mode remains selected and the runtime queue
+is empty. Standard programs are preserved as comparison inputs, not converted
+to the new model; the browser's prior example draft is still separate.

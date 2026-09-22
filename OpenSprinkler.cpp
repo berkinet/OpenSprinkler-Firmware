@@ -22,6 +22,12 @@
  */
 
 #include "OpenSprinkler.h"
+#if defined(DEMO_VALVE_SIM_ONLY)
+#ifndef DEMO
+#error "DEMO_VALVE_SIM_ONLY requires DEMO"
+#endif
+#include "tools/valve_sim/guard.h"
+#endif
 #include "opensprinkler_server.h"
 #include "gpio.h"
 #ifdef __has_include
@@ -1567,6 +1573,9 @@ void OpenSprinkler::switch_special_station(unsigned char sid, unsigned char valu
 		// read station data
 		StationData *pdata=(StationData*) tmp_buffer;
 		get_station_data(sid, pdata);
+#if defined(DEMO_VALVE_SIM_ONLY)
+		if (!demo_valve_sim_allowed(stype, (const char *)pdata->sped)) return;
+#endif
 		switch(stype) {
 
 		case STN_TYPE_RF:
