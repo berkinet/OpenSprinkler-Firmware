@@ -9,6 +9,7 @@ from zoneinfo import ZoneInfo
 
 from .calendar import normalize, resolve_calendar
 from .solar import night_intervals
+from .fixed import fixed_plan
 from .draft import InputErrors, Validator, compile_draft, quantity, shape, text
 from .model import integer, number
 from .planner import ETPeriod, Window, plan
@@ -68,7 +69,7 @@ def clip_weather(periods, start, end):
 def audit(draft):
     config = compile_draft(draft)
     return dict(schema_version=1, mode='offline_no_controller_io',
-                status='configuration_valid', enabled_programs=len(config.zones),
+                status='configuration_valid', enabled_programs=len(config.zones)+len(config.fixed),
                 disabled_programs=list(config.disabled),
                 runtime_required=['as_of and named timezone', 'eligible station IDs',
                     'resource limits and timing margins', 'reconciled per-valve depletion and soak readiness',
@@ -98,11 +99,12 @@ def dry_run(draft, runtime):
         transition = v.get('runtime.resource.transition_seconds', lambda: integer(resource.get('transition_seconds')))
         margin = v.get('runtime.resource.closing_margin_seconds', lambda: integer(resource.get('closing_margin_seconds')))
     promoted = v.get('runtime.promoted_sids', lambda: sid_list(runtime.get('promoted_sids', [])))
-    active_sids = {z.station-1 for z in config.zones}
+    soil_sids = {z.station-1 for z in config.zones}
+    active_sids = soil_sids | {p.sid for p in config.fixed}
     if eligible is not None and not active_sids <= set(eligible):
         v.issues.append(dict(path='runtime.eligible_station_sids', message='an enabled program references an unavailable, disabled, master or bundled valve'))
     if promoted is not None:
-        if not set(promoted) <= active_sids or (promoted and config.shortage != 'promote_next'):
+        if not set(promoted) <= soil_sids or (promoted and config.shortage != 'promote_next'):
             v.issues.append(dict(path='runtime.promoted_sids', message='promotion requires an enabled valve and promote_next policy'))
     v.finish()
     first = datetime.fromtimestamp(now, tz).date()
@@ -125,7 +127,7 @@ def dry_run(draft, runtime):
     if 'night' in config.hours.values():
         nights = v.get('runtime.location', lambda: night_intervals(runtime['timezone'], first, through, runtime.get('location')))
         v.finish()
-    for zone in config.zones:
+    for zone in (*config.zones, *config.fixed):
         hours = config.hours[zone.id]
         if hours == 'night':
             daily = nights
@@ -154,10 +156,21 @@ def dry_run(draft, runtime):
             'depletion snapshot is already reconciled through as_of',
             'plans are not delivered water; no ledger or promotion state is changed',
             'runtime-mode full events assume refill only upon verified complete delivery',
-            'fixed full-event amounts are never multiplied by weather demand'],
+            'fixed full-event amounts are never multiplied by weather demand',
+            'fixed-time slots reserved before flexible soil work; groups resolve fixed-time conflicts',
+            'fixed-time misting receives no soil-water credit',
+            'fixed times preview the next 24 hours; no catch-up or automatic next-run promotion'],
         legal_windows=[dict(start=a, end=b) for a, b in intervals])
+    fixed_end = min(now+86400, int(datetime.combine(through+timedelta(days=1), datetime.min.time(), tz).timestamp()))
+    fixed_allowed = {key: [(a, b-max(0, margin-calendar_margin)) for a, b in values]
+                     for key, values in zone_intervals.items()}
+    fixed_output, reserved = fixed_plan(config, runtime, now, fixed_end, tz, fixed_allowed, transition, timestamp)
+    for zone in config.zones:
+        # fixed_plan subtracts same-valve soak periods from these intervals.
+        zone_intervals[zone.id] = fixed_allowed[zone.id]
+    result['fixed_decisions'] = fixed_output
     if not config.zones:
-        return dict(result, status='no_enabled_programs', decisions=[])
+        return dict(result, status='conditional_plan' if config.fixed else 'no_enabled_programs', decisions=[])
     if current is None:
         following = next((a for a, b in planning_intervals if a > now and b-a > margin), None)
         return dict(result, status='outside_watering_window', next_opening=following, decisions=[])
@@ -196,7 +209,7 @@ def dry_run(draft, runtime):
                     projections[zone.id] = v.get(path, lambda: clip_weather(periods, now, future))
     v.finish()
     decisions = plan(window, config.zones, config.profiles, config.groups, states,
-                     projections, horizons, promoted={f'sid:{sid}' for sid in promoted}, ready_at=ready, allowed=zone_intervals)
+                     projections, horizons, promoted={f'sid:{sid}' for sid in promoted}, ready_at=ready, allowed=zone_intervals, reserved=reserved)
     output = []
     for decision in decisions:
         zone = next(z for z in config.zones if z.id == decision['zone_id'])

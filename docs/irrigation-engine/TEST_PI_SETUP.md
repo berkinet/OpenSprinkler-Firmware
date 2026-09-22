@@ -169,3 +169,21 @@ The C++ guard tests and complete isolated firmware build passed. No valve
 start commands were issued. Soil mode remains selected and the runtime queue
 is empty. Standard programs are preserved as comparison inputs, not converted
 to the new model; the browser's prior example draft is still separate.
+
+### Initial new-model programs
+
+The owner authorized starters for active valves 1-8; Kitchen East and Kitchen
+West receive none. Use production base runtimes provisionally, not the current
+weather-percentage-adjusted duration. Salad irrigation stays separate from its
+fixed daily 12:15, three-minute misting event. The latter does not imply soil
+refill. Front entry and Pool End each consolidate six one-minute consecutive
+starts into six minutes total ON time; these are provisional field-review
+values, not measured refill amounts. Other starter event runtimes are 15 minutes
+(Artichokes), 120 (Cucumber/Zucchini), 45 (Tomato boxes), 120 (Strawberries),
+120 (Asparagus), and one minute for Salad irrigation.
+
+The private starter file lives in the served UI's `js/soil-starter-programs.json`.
+Preserve it when replacing UI packages. It adds eight soil programs and the
+separate Salad misting program once per browser. All start in Normal priority;
+field calibration and watering restrictions still need owner review. Automatic
+watering remains paused; this does not start parallel autonomous simulation.

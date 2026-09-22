@@ -399,3 +399,21 @@ allowed intervals and keeps nights continuous across midnight. Unrestricted
 continuous time uses a rolling 24-hour planning horizon. Future service remains
 caller supplied and capacity-unverified. Browser drafts and offline planning are
 implemented; live automatic watering remains paused.
+
+## Fixed days, times and watering duration
+
+The new-model editor now offers this as a mutually exclusive alternative to
+Soil water balance. Fixed mode hides profile/refill/calibration controls and
+saves only its own schedule fields, while retaining shared valve, priority,
+allowed-hours and duration/cycle/soak controls. Multiple fixed programs may
+share a valve with its single soil-water program; each fixed program has a
+stable ID so editing or deleting one does not replace its neighbor.
+
+On the dedicated DEMO UI host, an optional `js/soil-starter-programs.json` can
+seed browser drafts once. It must match the complete controller station-name
+list and eligible valves. Existing edited programs/settings are retained;
+only an exact explicitly supplied example can be replaced. The prior complete
+draft is backed up under the controller-scoped starter marker before saving.
+Later visits do not recreate deleted starters. This is an initial draft import,
+not controller persistence or cross-browser synchronization of later edits.
+Keep site-specific starter files on the test Pi, outside the public repository.

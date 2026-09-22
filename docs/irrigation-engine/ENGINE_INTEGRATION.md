@@ -232,3 +232,27 @@ allowed intervals and keeps nights continuous across midnight. Unrestricted
 continuous time uses a rolling 24-hour planning horizon. Future service remains
 caller supplied and capacity-unverified. Browser drafts and offline planning are
 implemented; live automatic watering remains paused.
+
+## Fixed-time programs (draft v4)
+
+A program is either the existing soil-water record, or an exclusive fixed record:
+`id` (unique `timed:` prefix), `scheduleMode: "fixed"`, `sid`, `name`, `enabled`,
+`group`, `permittedHours`, `amountMode: "runtime"`, `runtime`, `cycle`, `soak`,
+`minimum` (minutes), `days` (Monday=0), and `times` (`HH:MM` strings).
+Fixed records reject soil-profile, rate, efficiency and depth fields. Legacy
+v1-v3 drafts remain accepted. Shared-settings edits preserve v4.
+
+`fixed_decisions` reports occurrences over the next rolling 24 hours, bounded
+by `calendar_through`. Starts stay exact; cycle spacing is at least configured
+soak and resource transition time. Entire events must fit permitted intervals;
+there is no partial event, catch-up, or automatic promotion. The planner reserves
+fixed slots before flexible soil work, resolves fixed conflicts by priority,
+and prevents same-valve overlap/soak violations across both kinds of program.
+This is a conservative reference policy, not an optimal packing guarantee.
+
+Both kinds require explicit reconciled readiness/unresolved-delivery state.
+Fixed-only configurations need no soil profile, depletion, future ETo or
+next-service assumptions. Fixed misting receives no soil-water credit; it never
+resets the shared valve's depletion. A future calibrated irrigation use must
+explicitly account for delivered water instead of assuming misting refills soil.
+No ledger, event deduplication service, live scheduler or dispatch is added here.

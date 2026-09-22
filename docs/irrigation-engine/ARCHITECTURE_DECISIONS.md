@@ -140,3 +140,23 @@ ratings and layout provenance into a program; later catalogue changes cannot
 silently alter saved program values. Seed entries are source-labelled examples,
 not identified installed hardware or measured efficiency. Controller storage
 and automatic dispatch remain future integration work.
+
+## 22 September 2026 — fixed-time exceptions within the new scheduling mode
+
+Owner clarification: Salad has a midday misting use distinct from irrigation.
+Each program chooses mutually exclusively between Soil water balance and
+**Fixed days, times and watering duration**. Both have a priority group. Keep
+one soil-water program per physical valve, but permit separate fixed-time
+programs on that same valve. Do not activate the Standard engine alongside the
+new engine. The physical zone and water balance still belong to one valve.
+
+Implemented prototype policy: fixed programs specify weekdays and exact local
+start times, runtime, cycle/soak, priority and allowed hours. They do not require
+soil calibration or infer refill from misting. Legal restrictions still apply;
+blocked or conflicting events are skipped/reported, never delayed or caught up.
+The offline planner reserves exact slots before flexible soil work, using group
+order to resolve fixed-slot conflicts (chronological start then program ID for
+ties). Fixed skips are not automatically promoted into extra/moved misting.
+This ordering is an implementation policy for review, not a field-validated
+agronomic rule. DST missing times are skipped, repeated times occur once at the
+first occurrence. All prototype output remains conditional and non-dispatching.

@@ -185,3 +185,25 @@ legacy compatibility, catalogue edits/deletion/import/stale saves and unchanged
 program snapshots. One shared v2 fixture is reproduced by the browser form test
 and consumed by the Python engine test. No live weather/sensor ingestion,
 controller-side persistence or soil-water automatic dispatch is added.
+
+## 2026-09-22 — mutually exclusive fixed-time programs and starter drafts
+
+Implemented and installed the fixed days/times/duration editor option on the
+dedicated test Pi, retaining shared priority and cycle/soak controls. Extended
+the offline compiler/planner with exact fixed-time reservations, hard watering
+restrictions, group conflict resolution and separate program identity on shared
+valves. Fixed misting does not imply soil refill. Firmware dispatch is unchanged
+and Soil water balance mode remains automatically paused.
+
+Installed a private DEMO starter set: eight provisional soil programs plus
+Salad's daily 12:15 three-minute misting program, no kitchen programs. Replaced
+only the exact old review example; backed up the browser draft and prior UI
+module. Verified the live Programs page lists nine drafts and the fixed editor
+shows the priority selector while hiding soil calibration/refill fields.
+
+Validation: 88 Python tests, 416 headless browser tests, ESLint and diff checks
+passed. Tests cover same-valve separation, no misting refill credit, priorities,
+restrictions, DST edges, malformed/exclusive schema fields, legacy compatibility,
+shared-field persistence, independent deletion and once-only starter import.
+The starter compile check reports only the five intentionally unconfigured
+shared-profile inputs. No production controller changes or valve commands.

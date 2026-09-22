@@ -26,6 +26,89 @@ describe("Soil-water program drafts", function () {
 		OSApp.currentSession.ip = oldIP;
 		sandbox.restore();
 	});
+	it("fixed and soil schedules are mutually exclusive and keep a common priority", function () {
+		OSApp.SoilPrograms.editPage(); header.rightBtn.on(); // soil program on valve zero
+		OSApp.SoilPrograms.editPage();
+		$("#soil-schedule-mode").val("fixed").trigger("change");
+		assert.equal($("#soil-zone option").length, 2);
+		$("#soil-zone").val("0"); $("#soil-name").val("Midday mist");
+		$("#soil-fixed-day-0, #soil-fixed-day-2").prop("checked", true);
+		$("#soil-fixed-times").val("12:15, 15:00");
+		$("#soil-runtime, #soil-cycle").val("180"); $("#soil-soak").val("0"); $("#soil-minimum").val("1");
+		$("#soil-rate").val("-9"); // irrelevant hidden calibration must not block fixed save
+		assert.equal($("#soil-profile").closest(".ui-field-contain").css("display"), "none");
+		assert.equal($("#soil-amount-mode").closest(".ui-field-contain").css("display"), "none");
+		assert.notEqual($("#soil-group").closest(".ui-field-contain").css("display"), "none");
+		header.rightBtn.on();
+		var data = OSApp.SoilPrograms.load(), fixed = data.programs[1];
+		assert.equal(data.version, 4); assert.equal(data.programs.length, 2);
+		assert.equal(fixed.sid, 0); assert.equal(fixed.scheduleMode, "fixed");
+		assert.deepEqual(fixed.days, [0,2]); assert.deepEqual(fixed.times, ["12:15","15:00"]);
+		assert.equal(fixed.runtime, 3); assert.equal(fixed.group, "Normal");
+		assert.notProperty(fixed, "profile"); assert.notProperty(fixed, "rate"); assert.notProperty(fixed, "depth");
+		OSApp.SoilPrograms.editPage(fixed.id);
+		assert.equal($("#soil-name").val(), "Midday mist");
+		$("#soil-name").val("Misting"); header.rightBtn.on();
+		assert.equal(OSApp.SoilPrograms.load().programs.length, 2);
+		assert.equal(OSApp.SoilPrograms.load().programs[0].sid, 0);
+		OSApp.SoilPrograms.editPage(fixed.id);
+		$("#soil-schedule-mode").val("soil").trigger("change");
+		header.rightBtn.on();
+		assert.include(OSApp.Errors.showError.lastCall.args[0], "already has");
+		assert.equal(OSApp.SoilPrograms.load().programs[1].scheduleMode, "fixed");
+		assert.isFalse(OSApp.Firmware.sendToOS.called);
+	});
+	it("deleting fixed misting retains its soil program and concurrent changes", function () {
+		var data = OSApp.SoilPrograms.load(); data.version = 4;
+		data.programs = [{sid:0,name:"Soil",group:"Normal"}, {sid:0,id:"timed:mist",scheduleMode:"fixed",name:"Mist",group:"Normal",amountMode:"runtime"}];
+		OSApp.SoilPrograms.save(data);
+		sandbox.stub(OSApp.UIDom, "areYouSure").callsFake((title,body,done) => done());
+		OSApp.SoilPrograms.editPage("timed:mist");
+		data.profile = {crop:0.7}; OSApp.SoilPrograms.save(data);
+		$("#addprogram button").filter(function(){return $(this).text() === "Delete draft";}).trigger("click");
+		assert.deepEqual(OSApp.SoilPrograms.load().programs.map(p=>p.name), ["Soil"]);
+		assert.deepEqual(OSApp.SoilPrograms.load().profile, {crop:0.7});
+	});
+	it("rejects missing fixed weekdays or duplicate times and preserves mode across shared settings", function () {
+		OSApp.SoilPrograms.editPage(); $("#soil-schedule-mode").val("fixed").trigger("change");
+		header.rightBtn.on(); assert.equal(OSApp.SoilPrograms.load().programs.length, 0);
+		$("#soil-fixed-day-0").prop("checked", true); $("#soil-fixed-times").val("12:15,12:15");
+		header.rightBtn.on(); assert.equal(OSApp.SoilPrograms.load().programs.length, 0);
+		$("#soil-fixed-times").val("12:15"); $("#soil-runtime, #soil-cycle").val("180");
+		$("#soil-soak").val("0"); $("#soil-minimum").val("1"); header.rightBtn.on();
+		OSApp.SoilPrograms.settingsPage(); header.rightBtn.on();
+		assert.equal(OSApp.SoilPrograms.load().version, 4);
+		assert.equal(OSApp.SoilPrograms.load().programs[0].scheduleMode, "fixed");
+	});
+	it("applies DEMO starters once, backs up and preserves edited programs and settings", function () {
+		var seed = {version:1, id:"test-seed", stationNames:["LT","RM","Disabled","Master"], programs:[
+			{sid:0,name:"Starter LT",profile:"garden",group:"Normal",amountMode:"runtime"},
+			{sid:1,name:"Starter RM",profile:"garden",group:"Normal",amountMode:"runtime"},
+			{sid:0,id:"timed:test",scheduleMode:"fixed",name:"Mist",group:"Normal",amountMode:"runtime"}
+		]};
+		assert.isFalse(OSApp.SoilPrograms.applyStarters(seed));
+		OSApp.currentSession.controller.options.hwv = 255;
+		var draft = OSApp.SoilPrograms.load(); draft.programs = [{sid:0,name:"My edited program"}]; draft.profile = {crop:0.8};
+		OSApp.SoilPrograms.save(draft);
+		assert.isTrue(OSApp.SoilPrograms.applyStarters(seed));
+		var result = OSApp.SoilPrograms.load();
+		assert.equal(result.programs.length, 3); assert.equal(result.programs[0].name, "My edited program");
+		assert.deepEqual(result.profile, {crop:0.8});
+		assert.equal(JSON.parse(memory[OSApp.SoilPrograms.storageKey()+":starter:test-seed:backup"]).programs.length,1);
+		assert.isFalse(OSApp.SoilPrograms.applyStarters(seed));
+		result.programs = []; OSApp.SoilPrograms.save(result);
+		assert.isFalse(OSApp.SoilPrograms.applyStarters(seed)); // deletion stays deleted
+		assert.isFalse(OSApp.Firmware.sendToOS.called);
+	});
+	it("starter mismatch or duplicate valve cannot partly replace existing data", function () {
+		OSApp.currentSession.controller.options.hwv = 255;
+		var seed = {version:1,id:"wrong",stationNames:["Other"],programs:[]};
+		assert.isFalse(OSApp.SoilPrograms.applyStarters(seed));
+		seed.stationNames = OSApp.currentSession.controller.stations.snames;
+		seed.programs = [{sid:0,name:"A",profile:"garden",amountMode:"runtime"},{sid:0,name:"B",profile:"garden",amountMode:"runtime"}];
+		assert.throws(() => OSApp.SoilPrograms.applyStarters(seed));
+		assert.equal(OSApp.SoilPrograms.load().programs.length,0);
+	});
 	it("offers exactly two hours choices and saves Night only without fixed times", function () {
 		OSApp.SoilPrograms.editPage();
 		assert.deepEqual($("#soil-hours-mode option").map(function(){return $(this).text();}).get(), ["No restrictions", "Set allowed hours"]);

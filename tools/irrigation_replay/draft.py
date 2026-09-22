@@ -1,4 +1,4 @@
-"""Compile browser v1/v2/v3 drafts into the offline engine's configuration.
+"""Compile browser v1/v2/v3/v4 drafts into the offline engine's configuration.
 
 No controller reads, defaults for missing calibration, or runtime state writes.
 Paths in errors refer to exported form fields so configuration gaps are visible.
@@ -105,6 +105,20 @@ def permitted_hours(value, inherited=None):
 
 
 @dataclass(frozen=True)
+class FixedProgram:
+    id: str
+    sid: int
+    name: str
+    group: str
+    days: tuple
+    times: tuple
+    runtime: int
+    cycle: int
+    soak: int
+    minimum: int
+
+
+@dataclass(frozen=True)
 class DraftConfig:
     profiles: dict
     zones: tuple
@@ -115,6 +129,7 @@ class DraftConfig:
     excluded: tuple
     shortage: str
     hours: dict
+    fixed: tuple = ()
 
 
 def compile_draft(draft):
@@ -123,7 +138,7 @@ def compile_draft(draft):
     v.get('draft', lambda: shape(draft, ('version', 'programs', 'groups', 'windows',
                                         'excluded', 'shortage', 'profile', 'defaultHours')))
     v.finish()
-    if type(draft.get('version')) is not int or draft['version'] not in (1, 2, 3):
+    if type(draft.get('version')) is not int or draft['version'] not in (1, 2, 3, 4):
         raise InputErrors([dict(path='version', message='unsupported draft version')])
     groups = draft.get('groups')
     def group_names():
@@ -176,8 +191,52 @@ def compile_draft(draft):
         v.issues.append(dict(path='programs', message='expected a list'))
         programs = []
     profiles, zones, names, disabled, seen = {}, [], {}, [], set()
+    fixed, fixed_ids = [], set()
     for i, p in enumerate(programs):
         path = f'programs[{i}]'
+        if draft['version'] >= 4 and isinstance(p, dict) and p.get('scheduleMode') == 'fixed':
+            if v.get(path, lambda: shape(p, ('id', 'sid', 'name', 'enabled', 'group',
+                    'scheduleMode', 'permittedHours', 'amountMode', 'runtime',
+                    'cycle', 'soak', 'minimum', 'days', 'times'))) is None:
+                continue
+            pid = v.get(path+'.id', lambda: text(p.get('id')))
+            if pid is not None:
+                if not pid.startswith('timed:') or pid in fixed_ids:
+                    v.issues.append(dict(path=path+'.id', message='unique timed: program ID required'))
+                fixed_ids.add(pid)
+            sid = v.get(path+'.sid', lambda: integer(p.get('sid')))
+            name = v.get(path+'.name', lambda: text(p.get('name')))
+            if p.get('group') not in (ordered or ()):
+                v.issues.append(dict(path=path+'.group', message='unknown priority group'))
+            if type(p.get('enabled')) is not bool:
+                v.issues.append(dict(path=path+'.enabled', message='expected a boolean'))
+                continue
+            if not p['enabled']:
+                disabled.append(dict(id=pid, sid=sid, name=name, reason='disabled'))
+                continue
+            if p.get('amountMode') != 'runtime':
+                v.issues.append(dict(path=path+'.amountMode', message='fixed schedules require runtime'))
+            days = v.get(path+'.days', lambda: weekday_list(p.get('days')))
+            def start_times():
+                times = p.get('times')
+                if not isinstance(times, list) or not times:
+                    raise ValueError('select at least one start time')
+                result = tuple(sorted(minute(t) for t in times))
+                if len(set(result)) != len(result):
+                    raise ValueError('duplicate start time')
+                return result
+            times = v.get(path+'.times', start_times)
+            values = {k: v.get(path+'.'+k, lambda k=k: seconds(p.get(k), zero=k == 'soak'))
+                      for k in ('runtime', 'cycle', 'soak', 'minimum')}
+            hours[pid] = v.get(path+'.permittedHours', lambda: permitted_hours(p.get('permittedHours'), default_hours))
+            if all(x is not None for x in (pid, sid, name, days, times, *values.values())):
+                if values['minimum'] > min(values['cycle'], values['runtime']):
+                    v.issues.append(dict(path=path+'.minimum', message='minimum pulse exceeds cycle or runtime'))
+                elif values['runtime'] + ((values['runtime']-1)//values['cycle'])*values['soak'] > 86400:
+                    v.issues.append(dict(path=path+'.runtime', message='fixed event must finish within 24 hours'))
+                else:
+                    fixed.append(FixedProgram(pid, sid, name, p.get('group'), days, times, **values))
+            continue
         if v.get(path, lambda: shape(p, ('sid', 'name', 'profile', 'group', 'enabled',
                                         'rate', 'efficiency', 'cycle', 'soak', 'minimum',
                                         *(() if draft['version'] == 1 else ('amountMode', 'runtime', 'depth', 'equipment', 'calibrationSource', 'permittedHours'))))) is None:
@@ -223,7 +282,7 @@ def compile_draft(draft):
             if zone is not None:
                 zones.append(zone)
                 names[zone.id] = name
-    if any(isinstance(p, dict) and p.get('enabled') is True for p in programs) and raw_profile is not None:
+    if any(isinstance(p, dict) and p.get('enabled') is True and p.get('scheduleMode') != 'fixed' for p in programs) and raw_profile is not None:
         values = {}
         for key in ('capacity', 'roots', 'depletion', 'crop', 'rain'):
             values[key] = v.get('profile.'+key, lambda key=key: quantity(
@@ -237,4 +296,4 @@ def compile_draft(draft):
             v.issues.append(dict(path='programs', message='event depth exceeds soil reservoir capacity'))
     v.finish()
     return DraftConfig(profiles, tuple(zones), names, tuple(disabled), ordered,
-                       tuple(rules), excluded, policy, hours)
+                       tuple(rules), excluded, policy, hours, tuple(fixed))
