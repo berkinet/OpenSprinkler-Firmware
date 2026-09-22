@@ -43,7 +43,10 @@
       "amountMode": "runtime",
       "runtime": 5,
       "depth": "",
-      "calibrationSource": "manual"
+      "calibrationSource": "manual",
+      "permittedHours": {
+        "mode": "inherit"
+      }
     },
     {
       "sid": 1,
@@ -59,7 +62,10 @@
       "amountMode": "depth",
       "runtime": "",
       "depth": 6,
-      "calibrationSource": "manual"
+      "calibrationSource": "manual",
+      "permittedHours": {
+        "mode": "inherit"
+      }
     }
   ]
 }

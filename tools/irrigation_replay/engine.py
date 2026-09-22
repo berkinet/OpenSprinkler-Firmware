@@ -110,6 +110,13 @@ def dry_run(draft, runtime):
     intervals = normalize([interval for days, start, end in config.rules
         for interval in resolve_calendar(runtime['timezone'], first.isoformat(), through.isoformat(),
                                           days, [(start, end)], config.excluded)])
+    zone_intervals = {}
+    for zone in config.zones:
+        hours = config.hours[zone.id]
+        daily = resolve_calendar(runtime['timezone'], first.isoformat(), through.isoformat(),
+                                 range(7), [hours]) if hours is not None else intervals
+        zone_intervals[zone.id] = normalize([(max(a, c), min(b-margin, d))
+            for a, b in intervals for c, d in daily if max(a, c) < min(b-margin, d)])
     current = next(((a, b) for a, b in intervals if a <= now < b-margin), None)
     result = dict(schema_version=1, mode='offline_no_controller_io',
         automatic_watering_enabled=False, as_of=runtime['as_of'], timezone=runtime['timezone'],
@@ -152,9 +159,9 @@ def dry_run(draft, runtime):
             path = f'runtime.next_service.{sid}'
             future = v.get(path, lambda: timestamp(future_raw.get(sid)))
             if future is not None:
-                if not any(a >= current[1] and a <= future and future+zone.minimum_pulse_seconds <= b-margin
-                           for a, b in intervals):
-                    v.issues.append(dict(path=path, message='service must fit at least a minimum pulse in a later legal window'))
+                if not any(a >= current[1] and a <= future and future+zone.minimum_pulse_seconds <= b
+                           for a, b in zone_intervals[zone.id]):
+                    v.issues.append(dict(path=path, message='service must fit at least a minimum pulse in a later legal window within program permitted hours'))
                 if ready.get(zone.id) is not None and future < ready[zone.id]:
                     v.issues.append(dict(path=path, message='service precedes valve soak readiness'))
                 horizons[zone.id] = future
@@ -162,7 +169,7 @@ def dry_run(draft, runtime):
                     projections[zone.id] = v.get(path, lambda: clip_weather(periods, now, future))
     v.finish()
     decisions = plan(window, config.zones, config.profiles, config.groups, states,
-                     projections, horizons, promoted={f'sid:{sid}' for sid in promoted}, ready_at=ready)
+                     projections, horizons, promoted={f'sid:{sid}' for sid in promoted}, ready_at=ready, allowed=zone_intervals)
     output = []
     for decision in decisions:
         zone = next(z for z in config.zones if z.id == decision['zone_id'])

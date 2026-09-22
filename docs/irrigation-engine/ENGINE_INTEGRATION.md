@@ -176,3 +176,30 @@ pulse before emitting a completion assertion; no live adapter does so yet.
 and consumed by Python tests. Run it with the existing editor-runtime fixture to
 compare a full five-minute runtime event with a capacity-limited calibrated
 water-depth event. These are synthetic offline examples, not garden calibration.
+
+
+## 22 September 2026 — default and per-program permitted hours
+
+Edit Options → Scheduling now includes a default daily permitted-hours control,
+visible for Soil water balance. Use its **Save default hours draft** button;
+this is browser-local draft storage, separate from controller option submission.
+Each program can inherit that default, specify its own daily interval, or allow
+any time within the site legal windows. Inheritance stays linked: changing the
+default affects inheriting programs, while explicit overrides remain unchanged.
+
+Times are controller-local; an earlier closing time crosses midnight. Equal
+endpoints are rejected; the explicit Any time choice covers the full day.
+Existing drafts inherit an unrestricted daily default, retaining their existing
+legal windows. Site weekday windows and excluded dates are always hard limits;
+a program override cannot widen them. Every pulse must fit inside the intersection.
+
+The optional v2 root `defaultHours` and program `permittedHours` objects contain
+`mode` (`all` or `custom`, plus `inherit` for programs). Custom objects require
+`start` and `end` as HH:MM. Missing program settings inherit; missing default is
+`all`. The offline compiler resolves inheritance and the planner limits pulse
+packing, capacity calculations, and future-service validation to the resulting
+intervals. Complete runtime events that cannot fit are skipped with no partial
+allocation. Calendar resolution reuses the existing timezone/DST handling.
+
+This remains an editor/offline implementation. Controller persistence and live
+execution are not connected; automatic watering stays paused in the new mode.

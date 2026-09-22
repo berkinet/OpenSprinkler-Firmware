@@ -21,6 +21,40 @@ class FixedEventsTests(unittest.TestCase):
     def decision(self):
         return dry_run(self.draft, self.runtime)['decisions'][0]
 
+    def test_permitted_hours_inherit_override_and_soak_fit(self):
+        self.draft['windows'][0]['end'] = '06:30'
+        self.draft['defaultHours'] = dict(mode='custom', start='06:00', end='06:08')
+        d = self.decision()
+        self.assertEqual(d['status'], 'skipped')  # Five one-minute pulses need nine minutes.
+        self.assertEqual(d['pulses'], [])
+        self.draft['programs'][0]['permittedHours'] = dict(mode='all')
+        self.assertEqual(self.decision()['status'], 'full')
+        self.draft['programs'][0]['permittedHours'] = dict(mode='inherit')
+        self.assertEqual(self.decision()['status'], 'skipped')
+        self.draft['defaultHours']['end'] = '06:09'
+        self.assertEqual(self.decision()['status'], 'full')
+
+    def test_overnight_hours_and_site_restrictions_intersect(self):
+        self.draft['defaultHours'] = dict(mode='custom', start='22:00', end='06:09')
+        self.assertEqual(self.decision()['status'], 'full')
+        self.draft['windows'][0]['end'] = '06:08'
+        self.assertEqual(self.decision()['status'], 'skipped')
+        self.draft['defaultHours'] = dict(mode='all')
+        self.assertEqual(self.decision()['status'], 'skipped')
+
+    def test_future_service_must_respect_program_hours(self):
+        self.draft['defaultHours'] = dict(mode='custom', start='06:01', end='07:00')
+        with self.assertRaisesRegex(InputErrors, 'within program permitted hours'):
+            self.decision()
+
+    def test_bad_hours_are_rejected(self):
+        for hours in ({'mode': 'custom', 'start': '06:00', 'end': '06:00'},
+                      {'mode': 'custom', 'start': '25:00', 'end': '06:00'},
+                      {'mode': 'all', 'start': '06:00'}, {'mode': 'unknown'}, 4):
+            self.draft['defaultHours'] = hours
+            with self.assertRaises(InputErrors):
+                compile_draft(self.draft)
+
     def test_weather_changes_due_decision_never_full_runtime(self):
         for demand, due in [(0, False), (12, True), (14, True)]:
             self.runtime['weather']['periods'][1]['eto'] = demand

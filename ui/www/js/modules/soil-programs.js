@@ -90,6 +90,46 @@ OSApp.SoilPrograms.select = function( parent, id, label, items, value ) {
 	if ( value !== undefined ) { select.val( String( value ) ); }
 	return select;
 };
+// Shared daily-hours control; site legal windows always remain authoritative.
+OSApp.SoilPrograms.hoursSummary = function( value ) {
+	return value && value.mode === "custom" ? value.start + " - " + value.end : "Any time within legal watering windows";
+};
+OSApp.SoilPrograms.hoursControl = function( parent, id, value, inherited ) {
+	value = value || { mode: inherited === undefined ? "all" : "inherit" };
+	var choices = [ { value: "all", label: "Any time within legal watering windows" }, { value: "custom", label: "Set permitted hours" } ];
+	if ( inherited !== undefined ) { choices.unshift( { value: "inherit", label: "Use default: " + OSApp.SoilPrograms.hoursSummary( inherited ) } ); }
+	var mode = OSApp.SoilPrograms.select( parent, id + "-mode", "Permitted hours", choices, value.mode ),
+		box = $( "<div></div>" ).appendTo( parent ),
+		start = OSApp.SoilPrograms.field( box, id + "-start", "From", value.start, "time" ),
+		end = OSApp.SoilPrograms.field( box, id + "-end", "Until", value.end, "time" );
+	parent.append( "<p class='small'>Controller local time, every day. An end before the start crosses midnight. All watering pulses must finish within permitted hours and site legal windows; excluded dates still apply.</p>" );
+	function visibility() { box.toggle( mode.val() === "custom" ); }
+	mode.on( "change", visibility ); visibility();
+	return function() {
+		var result = { mode: mode.val() };
+		if ( result.mode === "custom" ) {
+			result.start = start.val(); result.end = end.val();
+			if ( ![ result.start, result.end ].every( function( t ) { return /^(?:[01][0-9]|2[0-3]):[0-5][0-9]$/.test( t ); } ) || result.start === result.end ) {
+				throw new Error( "Enter distinct permitted start and end times, or select Any time." );
+			}
+		}
+		return result;
+	};
+};
+OSApp.SoilPrograms.defaultHoursControl = function( parent ) {
+	var data;
+	try { data = OSApp.SoilPrograms.load(); } catch ( e ) { parent.append( $( "<p></p>" ).text( e.message ) ); return; }
+	parent.append( "<h3>Default permitted hours</h3><p class='small'>Programs using the default follow later changes automatically. Saved as a browser-local draft.</p>" );
+	var read = OSApp.SoilPrograms.hoursControl( parent, "soil-default-hours", data.defaultHours ), status = $( "<p role='status'></p>" );
+	parent.append( $( "<button type='button' class='ui-btn ui-mini noselect'>Save default hours draft</button>" ).on( "click", function() {
+		try {
+			var hours = read(), latest = OSApp.SoilPrograms.load();
+			latest.version = 2; latest.defaultHours = hours; OSApp.SoilPrograms.save( latest );
+			status.text( "Default permitted hours saved." );
+		} catch ( e ) { OSApp.Errors.showError( e.message ); }
+	} ), status );
+	parent.find( ":input" ).addClass( "noselect" );
+};
 OSApp.SoilPrograms.displayPage = function() {
 	var page = OSApp.SoilPrograms.page( "programs", OSApp.Language._( "Programs" ), "#sprinklers", null, {
 		icon: "plus",
@@ -112,7 +152,7 @@ OSApp.SoilPrograms.displayPage = function() {
 	} );
 };
 OSApp.SoilPrograms.editPage = function( sid ) {
-	var page, data, program, fields = {}, originalSid = sid, equipmentSnapshot;
+	var page, data, program, fields = {}, originalSid = sid, equipmentSnapshot, readHours;
 	function save() {
 		if ( !data || !fields.zone ) { return; }
 		try { data = OSApp.SoilPrograms.load(); } catch ( e ) { return OSApp.Errors.showError( e.message ); }
@@ -128,6 +168,7 @@ OSApp.SoilPrograms.editPage = function( sid ) {
 		var equipment;
 		try { equipment = fields.amountMode.val() !== "runtime" && fields.calibrationSource.val() === "catalogue" ? equipmentSnapshot() : undefined; } catch ( e ) { return OSApp.Errors.showError( e.message ); }
 		var result = { calibrationSource: fields.calibrationSource.val(), sid: chosen, name: fields.name.val().trim(), profile: "garden", group: fields.group.val(), enabled: fields.enabled.prop( "checked" ) };
+		try { result.permittedHours = readHours(); } catch ( e ) { return OSApp.Errors.showError( e.message ); }
 		result.amountMode = fields.amountMode.val();
 		for ( var key of [ "rate", "efficiency", "cycle", "soak", "minimum", "runtime", "depth" ] ) {
 			var raw = [ "cycle", "soak", "minimum", "runtime" ].includes( key ) ? OSApp.SoilPrograms.durationMinutes( fields[ key ] ) : fields[ key ].val(), number = Number( raw );
@@ -165,6 +206,8 @@ OSApp.SoilPrograms.editPage = function( sid ) {
 	fields.enabled = body.find( "#soil-enabled" );
 	OSApp.SoilPrograms.select( body, "soil-profile", "Site profile", [ { value: "garden", label: "Garden (shared)" } ], "garden" );
 	fields.group = OSApp.SoilPrograms.select( body, "soil-group", "Priority group", data.groups.map( function( g ) { return { value: g, label: g }; } ), program.group );
+	body.append( "<h2>Permitted watering hours</h2>" );
+	readHours = OSApp.SoilPrograms.hoursControl( $( "<div></div>" ).appendTo( body ), "soil-hours", program.permittedHours, data.defaultHours || { mode: "all" } );
 	body.append( "<h2>Watering amount</h2><p class='small'>Weather changes when watering is due. The configured full event stays constant. Unknown values may remain blank in a draft.</p>" );
 	var modes = [ { value: "runtime", label: "Minutes per watering (assumed refill)" }, { value: "depth", label: "Water depth per watering" } ];
 	if ( program.sid !== undefined && ( !program.amountMode || program.amountMode === "legacy" ) ) { modes.push( { value: "legacy", label: "Existing deficit-based draft (legacy)" } ); }

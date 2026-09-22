@@ -81,7 +81,15 @@ def free_intervals(window, reserved):
     return [(a, b) for a, b in result if b > a]
 
 
-def pack(zone, seconds, window, reserved=(), ready_at=None):
+def permitted_intervals(window, reserved, allowed=None):
+    free = free_intervals(window, reserved)
+    if allowed is None:
+        return free
+    return sorted((max(a, c), min(b, d)) for a, b in free for c, d in allowed
+                  if max(a, c) < min(b, d))
+
+
+def pack(zone, seconds, window, reserved=(), ready_at=None, allowed=None):
     """Greedy earliest feasible pulses; failure is not an optimality proof.
 
     Operates on a private reservation list, so failure cannot leak allocation.
@@ -94,7 +102,7 @@ def pack(zone, seconds, window, reserved=(), ready_at=None):
     pulses = []
     while remaining:
         chosen = None
-        for a, b in free_intervals(window, [*reserved, *pulses]):
+        for a, b in permitted_intervals(window, [*reserved, *pulses], allowed):
             start = max(a, ready)
             duration = min(remaining, zone.cycle_seconds, b-start)
             if 0 < remaining-duration < zone.minimum_pulse_seconds:
@@ -151,7 +159,7 @@ def project(depletion, profile, zone, periods, pulses):
 
 
 def plan(window, zones, profiles, groups, states, projections, horizons,
-         reserved=(), promoted=(), unmet_since=None, ready_at=None):
+         reserved=(), promoted=(), unmet_since=None, ready_at=None, allowed=None):
     """Pure plan: does not write ledger, tokens or control hardware.
 
     Group list is highest priority first. Explicit horizons are supplied by the
@@ -215,6 +223,7 @@ def plan(window, zones, profiles, groups, states, projections, horizons,
                       minimum_seconds=None if error else min_seconds, allocated_seconds=0, allocated_mm=0.0,
                       status='skipped', reason='', pulses=[], promotion_eligible=False,
                       next_service=horizons.get(zone.id), projection=None)
+        permitted = None if allowed is None else allowed.get(zone.id, [])
         reason = None
         if not zone.enabled:
             reason = 'disabled'
@@ -223,6 +232,8 @@ def plan(window, zones, profiles, groups, states, projections, horizons,
             record['unresolved'] = list(state)
         elif error:
             reason = error
+        elif not permitted_intervals(window, [], permitted):
+            reason = 'outside_program_hours'
         elif d+total < profile.threshold:
             reason = 'not_due'
         elif zone.watering_mode != 'runtime' and minimum > (number(zone.event_depth_mm) if zone.watering_mode == 'depth' else d):
@@ -238,7 +249,7 @@ def plan(window, zones, profiles, groups, states, projections, horizons,
             had_fit = False
             for status, seconds in attempts:
                 pulses = pack(zone, seconds, window, reservations,
-                              (ready_at or {}).get(zone.id))
+                              (ready_at or {}).get(zone.id), permitted)
                 if pulses is None:
                     continue
                 had_fit = True
@@ -255,7 +266,7 @@ def plan(window, zones, profiles, groups, states, projections, horizons,
                               projection=projection, promotion_eligible=(status == 'partial'))
                 break
             else:
-                available = sum(b-a for a, b in free_intervals(window, reservations))
+                available = sum(b-a for a, b in permitted_intervals(window, reservations, permitted))
                 if had_fit:
                     record['reason'] = 'trajectory_not_sufficient'
                 elif min_seconds > available:

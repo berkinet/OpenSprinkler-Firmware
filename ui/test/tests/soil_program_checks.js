@@ -26,6 +26,37 @@ describe("Soil-water program drafts", function () {
 		OSApp.currentSession.ip = oldIP;
 		sandbox.restore();
 	});
+	it("inherits default hours and persists explicit overnight overrides", function () {
+		var data = OSApp.SoilPrograms.load();
+		data.defaultHours = {mode: "custom", start: "22:00", end: "06:00"};
+		OSApp.SoilPrograms.save(data);
+		OSApp.SoilPrograms.editPage();
+		assert.equal($("#soil-hours-mode").val(), "inherit");
+		assert.include($("#soil-hours-mode option:selected").text(), "22:00 - 06:00");
+		header.rightBtn.on();
+		assert.deepEqual(OSApp.SoilPrograms.load().programs[0].permittedHours, {mode: "inherit"});
+		OSApp.SoilPrograms.editPage(0);
+		$("#soil-hours-mode").val("custom").trigger("change");
+		$("#soil-hours-start").val("23:00"); $("#soil-hours-end").val("05:00");
+		header.rightBtn.on();
+		OSApp.SoilPrograms.editPage(0);
+		assert.equal($("#soil-hours-start").val(), "23:00");
+		assert.equal($("#soil-hours-end").val(), "05:00");
+		$("#soil-hours-end").val("23:00"); header.rightBtn.on();
+		assert.include(OSApp.Errors.showError.lastCall.args[0], "distinct");
+		assert.equal(OSApp.SoilPrograms.load().programs[0].permittedHours.end, "05:00");
+	});
+	it("saves default hours without changing programs or sending controller options", function () {
+		var box = $("<div id='soil-settings'></div>").appendTo($.mobile.pageContainer);
+		OSApp.SoilPrograms.defaultHoursControl(box);
+		$("#soil-default-hours-mode").val("custom").trigger("change");
+		$("#soil-default-hours-start").val("22:00"); $("#soil-default-hours-end").val("06:00");
+		box.find("button").trigger("click");
+		assert.deepEqual(OSApp.SoilPrograms.load().defaultHours, {mode:"custom", start:"22:00", end:"06:00"});
+		assert.deepEqual(OSApp.SoilPrograms.load().programs, []);
+		assert.equal(box.find(":input:not(.noselect)").length, 0);
+		assert.isFalse(OSApp.Firmware.sendToOS.called);
+	});
 	it("saves and reopens one draft per valve without a controller program write", function () {
 		OSApp.SoilPrograms.editPage();
 		$("#soil-cycle, #soil-soak").val("60").trigger("input");

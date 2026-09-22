@@ -658,7 +658,7 @@ OSApp.Options.showOptions = function( expandItem ) {
 			"</select></div>" +
 			"<p id='scheduling-description' class='small'>" +
 			OSApp.Language._( "Standard runs your existing programs. Soil water balance opens the new editor, but automatic watering is paused until the engine is ready. Switch modes only when watering is idle. Save this page to apply your choice." ) +
-			"</p>" + ( OSApp.currentSession.controller.options.smode === 1 ?
+			"</p><div id='soil-default-hours-options'></div>" + ( OSApp.currentSession.controller.options.smode === 1 ?
 				"<a id='priority-groups-link' href='#priority-groups' class='ui-btn ui-mini'>" + OSApp.Language._( "Priority Groups" ) + "</a>" +
 				"<a id='equipment-catalog-link' href='#equipment-catalog' class='ui-btn ui-mini'>Equipment catalog</a>" : "" ) +
 			"<a href='#soil-settings' class='ui-btn ui-mini'>" + OSApp.Language._( "Soil-water settings draft" ) + "</a>";
@@ -1194,8 +1194,10 @@ OSApp.Options.showOptions = function( expandItem ) {
 			}
 		} );
 
+	OSApp.SoilPrograms.defaultHoursControl( page.find( "#soil-default-hours-options" ) );
+	page.find( "#soil-default-hours-options" ).toggle( OSApp.currentSession.controller.options.smode === 1 );
 	page.find( "#smode" ).on( "change", function() {
-		page.find( "#priority-groups-link, #equipment-catalog-link" ).toggle( $( this ).val() === "1" );
+		page.find( "#priority-groups-link, #equipment-catalog-link, #soil-default-hours-options" ).toggle( $( this ).val() === "1" );
 	} );
 
 	page.find( ".edit-loc" ).on( "click", function( e ) {

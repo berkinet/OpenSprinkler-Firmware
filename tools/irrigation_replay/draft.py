@@ -87,6 +87,23 @@ def weekday_list(value):
     return tuple(value)
 
 
+def permitted_hours(value, inherited=None):
+    if value is None:
+        return inherited
+    shape(value, ('mode', 'start', 'end'))
+    mode = value.get('mode')
+    if mode in ('all', 'inherit'):
+        if set(value) != {'mode'}:
+            raise ValueError('inactive hours must not contain times')
+        return inherited if mode == 'inherit' else None
+    if mode != 'custom':
+        raise ValueError('unknown permitted hours mode')
+    start, end = minute(value.get('start')), minute(value.get('end'))
+    if start == end:
+        raise ValueError('opening and closing must differ; use all for any time')
+    return (start, end)
+
+
 @dataclass(frozen=True)
 class DraftConfig:
     profiles: dict
@@ -97,13 +114,14 @@ class DraftConfig:
     rules: tuple
     excluded: tuple
     shortage: str
+    hours: dict
 
 
 def compile_draft(draft):
     """All enabled programs must be calibrated; disabled drafts stay inert."""
     v = Validator()
     v.get('draft', lambda: shape(draft, ('version', 'programs', 'groups', 'windows',
-                                        'excluded', 'shortage', 'profile')))
+                                        'excluded', 'shortage', 'profile', 'defaultHours')))
     v.finish()
     if type(draft.get('version')) is not int or draft['version'] not in (1, 2):
         raise InputErrors([dict(path='version', message='unsupported draft version')])
@@ -121,6 +139,10 @@ def compile_draft(draft):
     policy = draft.get('shortage')
     if policy not in ('report_only', 'promote_next'):
         v.issues.append(dict(path='shortage', message='unknown capacity-shortfall policy'))
+    if isinstance(draft.get('defaultHours'), dict) and draft['defaultHours'].get('mode') == 'inherit':
+        v.issues.append(dict(path='defaultHours', message='default cannot inherit itself'))
+    default_hours = v.get('defaultHours', lambda: permitted_hours(draft.get('defaultHours')))
+    hours = {}
     rules = []
     windows = draft.get('windows')
     if not isinstance(windows, list):
@@ -158,7 +180,7 @@ def compile_draft(draft):
         path = f'programs[{i}]'
         if v.get(path, lambda: shape(p, ('sid', 'name', 'profile', 'group', 'enabled',
                                         'rate', 'efficiency', 'cycle', 'soak', 'minimum',
-                                        *(() if draft['version'] == 1 else ('amountMode', 'runtime', 'depth', 'equipment', 'calibrationSource'))))) is None:
+                                        *(() if draft['version'] == 1 else ('amountMode', 'runtime', 'depth', 'equipment', 'calibrationSource', 'permittedHours'))))) is None:
             continue
         sid = v.get(path+'.sid', lambda: integer(p.get('sid')))
         name = v.get(path+'.name', lambda: text(p.get('name')))
@@ -178,6 +200,7 @@ def compile_draft(draft):
             continue
         if p.get('calibrationSource', 'manual') not in ('manual', 'catalogue'):
             v.issues.append(dict(path=path+'.calibrationSource', message='unknown calibration method'))
+        hours[f'sid:{sid}'] = v.get(path+'.permittedHours', lambda: permitted_hours(p.get('permittedHours'), default_hours))
         mode = p.get('amountMode', 'legacy')
         if mode not in ('legacy', 'depth', 'runtime'):
             v.issues.append(dict(path=path+'.amountMode', message='unknown watering amount mode'))
@@ -214,4 +237,4 @@ def compile_draft(draft):
             v.issues.append(dict(path='programs', message='event depth exceeds soil reservoir capacity'))
     v.finish()
     return DraftConfig(profiles, tuple(zones), names, tuple(disabled), ordered,
-                       tuple(rules), excluded, policy)
+                       tuple(rules), excluded, policy, hours)
