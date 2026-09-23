@@ -35,7 +35,7 @@ class APITests(unittest.TestCase):
         data=json.dumps(body).encode() if body is not None else None
         return urlopen(Request(self.base+path,method=method,data=data,headers=headers))
     def test_status_readable_and_expected_origin_can_apply_and_control(self):
-        with self.request('/simulation/status') as response: self.assertTrue(json.load(response)['running'])
+        with self.request('/simulation/status?_=12345') as response: self.assertTrue(json.load(response)['running'])
         with self.request('/simulation/config','POST','http://test-controller',{'version':4}) as response:
             self.assertEqual(json.load(response),{'accepted':4})
         with self.request('/simulation/control','POST','http://test-controller',{'action':'pause'}) as response:

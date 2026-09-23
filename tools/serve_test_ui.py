@@ -7,6 +7,7 @@ import threading
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import urlsplit
 
 
 class Assets(SimpleHTTPRequestHandler):
@@ -22,7 +23,7 @@ class Assets(SimpleHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_GET(self):
-        if self.path == "/simulation/status" and self.simulation:
+        if urlsplit(self.path).path == "/simulation/status" and self.simulation:
             self.reply(self.simulation.snapshot())
         else:
             super().do_GET()
@@ -46,9 +47,9 @@ class Assets(SimpleHTTPRequestHandler):
             if not 0 < length <= 262144 or self.headers.get("Content-Type", "").split(";")[0] != "application/json":
                 raise ValueError("Expected a bounded JSON request")
             body = json.loads(self.rfile.read(length))
-            if self.path == "/simulation/config":
+            if urlsplit(self.path).path == "/simulation/config":
                 result = self.simulation.configure(body)
-            elif self.path == "/simulation/control":
+            elif urlsplit(self.path).path == "/simulation/control":
                 result = self.simulation.control(body.get("action"))
             else:
                 self.send_error(404); return
