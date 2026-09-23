@@ -1,6 +1,7 @@
 logs/**
 OpenSprinkler
 OpenSprinkler-soil.new
+build-soil-demo/
 wtopts.txt
 *.dat
 *.sh

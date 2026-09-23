@@ -152,7 +152,7 @@ void soil_tick() {
             auto q=pd.enqueue();if(!q) throw std::runtime_error("Station queue full");
             q->sid=pulse.sid;q->pid=SOIL_PROGRAM_PID;q->st=pulse.start+offset();q->dur=pulse.end-pulse.start;q->deque_time=q->st+q->dur;
             os.status.program_busy=1;
-        } else if(now>=nextPlan && !runtime->eventRunning()) requestPlan(now);
+        } else if(now>=nextPlan && runtime->canReplan(now)) requestPlan(now);
     } catch(const std::exception& e) {fail(e);soil_pause(e.what());}
 }
 std::string soil_status() {

@@ -95,6 +95,15 @@ public:
         for(auto e:state["events"].as<JsonArrayConst>()) if(e["status"]=="running") return true;
         return false;
     }
+    bool canReplan(long now, long budget=25) const {
+        if(eventRunning()) return false;
+        for(auto e:state["events"].as<JsonArrayConst>()) {
+            if(e["status"]!="pending") continue;
+            for(auto p:e["pulses"].as<JsonArrayConst>())
+                if(p["status"]=="pending" && p["start"].as<long>()<=now+budget) return false;
+        }
+        return true;
+    }
     void pause(long now, const char* reason) {
         for(auto e:state["events"].as<JsonArray>()) if(e["status"]=="running") {
             int sid=e["sid"];

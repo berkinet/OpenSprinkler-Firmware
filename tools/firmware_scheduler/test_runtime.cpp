@@ -25,9 +25,11 @@ int main() {
     std::string path=std::string(dir)+"/state.json";
     Runtime r(path);r.load(100);auto c=config();r.configure(c.as<JsonVariantConst>(),100);r.resume(100);
     auto p=plan(r);r.accept(p.as<JsonVariantConst>(),100);
+    assert(r.canReplan(80));assert(!r.canReplan(100)); // preserve imminent fixed/soil starts
     r.begin(r.due(110),110);r.started(0,110);r.finish(0,170,true);
     assert(r.state["delivery"].size()==0); // a cycle alone is not a full refill
     assert(r.state["ready"]["0"]==230);
+    assert(!r.canReplan(180)); // keep remaining cycles, even during soak
     r.begin(r.due(230),230);r.started(0,230);r.finish(0,290,true);
     assert(r.state["delivery"].size()==1 && r.state["delivery"][0]["kind"]=="refill");
     r.finish(0,290,true);assert(r.state["delivery"].size()==1); // idempotent completion
