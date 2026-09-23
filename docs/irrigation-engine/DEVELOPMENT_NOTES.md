@@ -242,3 +242,31 @@ a paused state. This is fake-receiver validation, not physical delivery proof.
 See AUTOMATIC_SIMULATION.md for assumptions, operating steps and remaining gaps.
 Only the test UI service and its served modules were changed; the test firmware,
 production controllers and real valve bridge were not modified or operated.
+# 23 September 2026 — native firmware queue and live OS weather
+
+Implemented the Pi-only firmware integration documented in FIRMWARE_SCHEDULER.md.
+The C++ process owns state/configuration and dispatch, invoking the existing
+Python planner asynchronously as a one-shot component. This is not an embedded
+C++ allocation-engine port. The old accelerated UI-worker scheduler was stopped.
+
+Inspected/live findings: test Pi weather options selected AW without a key,
+producing error 35. Default hosted-provider requests returned Apple historical
+data with a local-midnight timestamp, daily ETo in inches and precipitation in
+inches. The Pi's erroneous provider option was removed; normal OS weather error
+became zero. The adapter stores dated days and replayable delivery separately,
+with explicit persistence estimates for today and future ETo.
+
+Live native-queue check: a temporary six-second runtime event was divided into
+three two-second pulses. OS `/jc` reported program ID 98 in its queue. One refill
+was journaled after the full event. A fixed three-second mist then ran with no
+refill. A first attempt failed closed on fragmented receiver HTTP response data;
+the fix accumulates and length-checks the response, with a regression test.
+The original nine garden drafts were then copied into controller persistence,
+with original blank soil profile and unknown initial depletion. Fixed misting
+remains eligible while missing soil inputs visibly block soil allocations.
+
+Tests: 419 browser tests; 88 reference-planner, 13 simulator/API and nine live-data
+adapter tests; C++ persistence/restart, cycle completion, event identity, HTTP
+fragmentation and imminent-start preservation checks. Build and smoke evidence
+are private on the test Pi; no production-controller requests or real valve
+routes were used.

@@ -37,7 +37,9 @@ previous browser drafts. Site input changes require an explicit new soil
 baseline; changing program settings alone preserves the existing baseline.
 
 The firmware invokes the planner when idle, at most once per minute, and retains
-an event's remaining cycles while it runs. It uses one active valve resource.
+an event's remaining cycles while it runs. It does not launch a worker within
+25 seconds of a known pending start, so weather latency/replanning cannot erase
+an imminent fixed reservation. It uses one active valve resource.
 Current fixed-event reservations retain the reference planner's priority and
 restriction rules. Native Stop All, queue pause, disabled-controller state and
 sensor restrictions cannot bypass the new dispatcher's stop handling. An
@@ -49,6 +51,12 @@ The fake receiver's small `/state` response confirms ON/OFF and its session
 identity; active state is checked every five seconds. Receiver restart or
 unexpected output pauses the engine. These are simulator acknowledgements,
 not evidence of actual field water delivery.
+
+Its HTTP response is collected across TCP fragments and checked against the
+declared length. The initial live test exposed the old single-read assumption;
+that pulse stopped immediately and received no refill credit. The corrected
+live test completed three two-second soil pulses followed by a separate
+three-second fixed mist, with exactly one assumed refill in the journal.
 
 ## Real OS weather, with explicit estimation
 
@@ -97,6 +105,9 @@ uses the existing hosted OS weather service; it does not require a new account.
   compaction/retention is still needed before sustained production use.
 - Native queue pause cancels remaining new-model cycles instead of moving them
   outside their approved windows. Resume the firmware scheduler explicitly.
+- Existing Pi services are transient systemd units. The controller data survives
+  restart, but the units still need recreation after a full Pi reboot; automatic
+  boot-service installation is a separate environment task.
 
 ## Build and checks
 
@@ -104,6 +115,8 @@ On the Pi, use POSIX `sh tools/build_soil_demo.sh`. This only compiles the
 candidate `OpenSprinkler-soil.new`; it installs no packages and changes no
 services. Keep the pinned external dependencies initialized. The production
 upstream build script is not used to reconfigure the Pi.
+The Makefile caches dependency-tracked objects and uses two compiler jobs by
+default; `SOIL_BUILD_JOBS=1 sh tools/build_soil_demo.sh` reduces memory demand.
 
 Local zsh commands from the repository root:
 

@@ -1,5 +1,30 @@
 # Dedicated test Pi — 21 September 2026
 
+Current integration (23 September): see [firmware scheduler](FIRMWARE_SCHEDULER.md)
+and [resume point](NEXT_SESSION.md). Code `ed33096d` was built and installed with
+SOIL_SCHEDULER, DEMO and DEMO_VALVE_SIM_ONLY. The UI service now serves assets
+without any `--simulation-*` arguments. The OS process owns scheduling and
+controller data; the fake receiver remains on loopback port 18080. Nine garden
+programs are persisted in `/home/codex/opensprinkler-demo/soil-state.json`.
+The API is `/soil`, `/soilcfg` (JSON POST) and `/soilctl?action=pause|resume`.
+The old accelerated simulation's private state was retained as a historical
+test record, with its worker stopped. Post-restart configuration and isolation
+checks passed; all fake valves were off after validation. The soil profile and
+initial depletion remain unknown, while fixed Salad mist remains eligible.
+
+The current UI startup command after a full Pi reboot is:
+
+```sh
+sudo systemd-run --unit=opensprinkler-ui --uid=codex \
+  --property=NoNewPrivileges=yes --property=Restart=on-failure \
+  /usr/bin/python3 /home/codex/OpenSprinkler-Firmware/tools/serve_test_ui.py \
+  /home/codex/opensprinkler-ui/scheduling-v1 --bind 0.0.0.0 --port 8081
+```
+
+Recreate the firmware and receiver units below as before, adding `--zones 16`
+to the receiver command. Do not restart the historical UI simulation worker
+alongside firmware scheduling.
+
 For the subsequently installed Scheduling section and locally hosted UI, see
 [UI development and deployment](UI_DEVELOPMENT.md). The build baseline below
 records the earlier unmodified DEMO build.

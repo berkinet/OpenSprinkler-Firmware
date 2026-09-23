@@ -1,4 +1,60 @@
-# Current resume point — 23 September 2026
+# Current resume point — firmware integration, 23 September 2026
+
+The owner authorized firmware integration and real inputs while keeping fake
+valves. The new Pi-only `SOIL_SCHEDULER` implementation is described in
+[FIRMWARE_SCHEDULER.md](FIRMWARE_SCHEDULER.md). OS firmware now owns persistent
+configuration, its native queue and completion records. It invokes the existing
+Python planner as a one-shot component; the old independent accelerated worker
+has been stopped and removed from the UI service command.
+
+The hosted OS weather service is working: its default Apple provider returned
+dated ETo/rainfall, and `/jc` reports weather error 0. The erroneous AW provider
+selection without a key was removed on the test Pi only. The new adapter uses
+dated daily observations, converts inches to mm, and labels today's/future ETo
+as an estimate based on the latest observed daily rate. It credits no forecast
+rain. Missing complete days block soil decisions.
+
+Nine garden programs are saved in the controller: eight soil programs for
+valves 1–8 and the separate Salad midday mist. No kitchen programs. Runtime
+durations remain the earlier provisional starter values. Automatic firmware
+scheduling is enabled, but the shared profile and initial soil depletion remain
+blank/unknown, so soil programs are visibly blocked. Fixed misting can run and
+was planned for 24 September at 12:15 local time after restoration.
+
+A clarification remains unanswered: supply real soil/root/depletion inputs and
+initial moisture, or explicitly opt into provisional test soil values. Do not
+silently enable that option. The UI exposes it separately from measured inputs.
+The completed bounded smoke test used its own short synthetic soil program;
+those test values were removed when restoring the garden configuration.
+
+The live check observed native queue program ID 98, three 2-second soil pulses
+with gaps, one refill only after all six seconds completed, and a separate
+3-second fixed mist with no refill credit. The first attempt exposed fragmented
+HTTP response handling; it stopped immediately with no refill, then passed after
+the fix. Private evidence is `/home/codex/irrigation-build-records/firmware-scheduler-smoke.json`.
+Backup: `/home/codex/irrigation-build-records/before-firmware-scheduler`.
+
+Use **Programs → Firmware watering** at http://192.168.5.244/. Browser drafts
+remain an editing area: Save drafts to controller persists them and pauses;
+Resume activates them. Load controller programs backs up the prior browser
+draft. Soil profile/initial-state changes require an explicit new baseline.
+
+Tests so far: 419 browser tests, 110 Python tests, plus C++ durable-runtime,
+HTTP-fragmentation and imminent-start protection checks. The real-valve path is
+compile-time blocked; exact numbered loopback HTTP routes are required.
+Capacity-verified future service, promotion persistence, master outputs,
+long-term ledger compaction and embedded portability remain unfinished.
+
+Final code installed: `ed33096d`. After a firmware service restart, all nine
+programs and the enabled state persisted. The running executable's SHA-256 was
+verified against the installed file; served UI modules matched repository
+source. The browser visibly showed the missing soil inputs, real OS Apple
+weather source and eligible Salad mist. All fake valves were off. Private final
+manifest: `/home/codex/irrigation-build-records/firmware-scheduler-installed.json`.
+
+---
+
+# Earlier resume point — Python simulation, 23 September 2026
 
 Automatic virtual watering is now implemented and installed. See
 [AUTOMATIC_SIMULATION.md](AUTOMATIC_SIMULATION.md) for operation, explicit test
