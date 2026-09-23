@@ -536,6 +536,9 @@ OSApp.SoilPrograms.firmwarePanel = function( page ) {
 		status.text( ( data.enabled ? "Automatic firmware scheduling enabled" : "Firmware scheduler paused" ) + " - " + new Date( data.clock * 1000 ).toLocaleString() + ( data.fatal || data.error ? " - " + ( data.fatal || data.error ) : "" ) );
 		details.empty();
 		$( "<p></p>" ).text( "Active fake valve: " + ( data.active ? ( c.stations.snames[ data.active.sid ] || "Valve " + ( data.active.sid + 1 ) ) : "None" ) ).appendTo( details );
+		Object.keys( data.unresolved || {} ).forEach( function( sid ) {
+			$( "<p></p>" ).text( c.stations.snames[ sid ] + " needs delivery reconciliation: " + data.unresolved[ sid ].join( "; " ) ).appendTo( details );
+		} );
 		if ( data.plan ) {
 			$( "<p></p>" ).text( data.plan.weather_source ).appendTo( details );
 			$( "<p></p>" ).text( data.plan.provisional ? "Soil inputs include provisional test assumptions." : "No provisional soil values are supplied automatically." ).appendTo( details );
@@ -546,7 +549,7 @@ OSApp.SoilPrograms.firmwarePanel = function( page ) {
 				$( "<li></li>" ).text( d.program_name + ": " + d.status + " - " + d.reason + " (" + d.allocated_seconds + " seconds)" ).appendTo( decisions );
 			} );
 			Object.keys( data.plan.balances || {} ).forEach( function( sid ) {
-				if ( ( data.plan.unresolved || {} )[ sid ] ) { return; }
+				if ( ( data.plan.unresolved || {} )[ sid ] || ( data.unresolved || {} )[ sid ] ) { return; }
 				$( "<p></p>" ).text( c.stations.snames[ sid ] + " depletion: " + data.plan.balances[ sid ].toFixed( 2 ) + " mm (at last plan)" ).appendTo( details );
 			} );
 		}

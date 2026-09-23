@@ -59,7 +59,7 @@ describe("Soil-water program drafts", function () {
 		var clock=sandbox.useFakeTimers(), calls=[], draft=OSApp.SoilPrograms.load();
 		draft.groups=["Local edits"]; OSApp.SoilPrograms.save(draft);
 		var snapshot={clock:1790160000,enabled:true,configRevision:7,draft:{version:4,groups:["Normal"],programs:[]},
-			site:{timezone:"Europe/Paris",provisional:false,initial:{}},records:[]};
+			site:{timezone:"Europe/Paris",provisional:false,initial:{}},records:[],unresolved:{"0":["Interrupted test"]}};
 		sandbox.stub($,"ajax").callsFake(options => {
 			calls.push(options); var d=$.Deferred(); d.resolve(options.method === "POST" ? {result:1} : snapshot);
 			var promise=d.promise();promise.abort=sinon.spy();return promise;
@@ -67,6 +67,7 @@ describe("Soil-water program drafts", function () {
 		OSApp.SoilPrograms.previewPage();
 		assert.equal($("#soil-simulation").length,0);
 		assert.include($("#soil-firmware").text(),"Automatic firmware scheduling enabled");
+		assert.include($("#soil-firmware").text(),"needs delivery reconciliation: Interrupted test");
 		assert.deepEqual(OSApp.SoilPrograms.load().groups,["Local edits"]);
 		$("#soil-firmware button").filter(function(){return $(this).text()==="Save drafts to controller";}).trigger("click");
 		var body=JSON.parse(calls[1].data);

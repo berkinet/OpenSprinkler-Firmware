@@ -111,6 +111,7 @@ void soil_started(unsigned char sid) {
 void soil_finished(unsigned char sid,bool normal) {
     if(!runtime || runtime->state["active"].isNull() || runtime->state["active"]["sid"]!=sid) return;
     try {runtime->finish(sid,utc(),normal && receiverState(sid,false,true));nextPlan=0;}catch(const std::exception& e){fail(e);}
+    if(!runtime->running()) for(int i=0;i<pd.nqueue;i++) if(pd.queue[i].pid==SOIL_PROGRAM_PID) pd.queue[i].dur=0;
 }
 void soil_tick() {
     if(!runtime) return;
@@ -157,7 +158,7 @@ void soil_tick() {
 std::string soil_status() {
     Soil::JsonDocument out;
     if(!runtime) {out["error"]="Scheduler not initialized";return Soil::json(out.as<Soil::JsonVariantConst>());}
-    out.set(runtime->state);out["service"]="opensprinkler-firmware-scheduler";out["clock"]=utc();out["fatal"]=runtime->fatal;out["planning"]=worker>0;
+    out.set(runtime->state);out["service"]="opensprinkler-firmware-scheduler";out["clock"]=utc();out["fatal"]=runtime->fatal;out["planning"]=worker>0;out["enabled"]=runtime->running();
     out.remove("delivery");
     // The weather host, credentials and precise location exist only in the private worker request.
     return Soil::json(out.as<Soil::JsonVariantConst>());
