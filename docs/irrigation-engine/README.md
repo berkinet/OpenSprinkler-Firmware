@@ -6,6 +6,8 @@ Current continuation point: [saved session and next simulation milestone](NEXT_S
 
 ## Scheduling design
 
+- [Pi firmware scheduler and real OS weather](FIRMWARE_SCHEDULER.md) — controller-owned execution, persistent configuration and current limits
+
 - [Automatic virtual watering](AUTOMATIC_SIMULATION.md) — running the reference scheduler with persistent fake-valve execution
 
 - [Scheduling specification, draft 1](SCHEDULING_SPEC.md) — agreed policies, proposed defaults and integration boundaries
@@ -17,10 +19,10 @@ Current continuation point: [saved session and next simulation milestone](NEXT_S
 
 The [offline reference model](../../tools/irrigation_replay/README.md) now accepts
 the actual browser draft format and explicit runtime snapshots. Multi-window
-service-horizon planning and firmware integration remain to be built. Both
+service-horizon planning remains to be built. Both
 scheduling modes are selectable on the test Pi. Soil water balance now includes
-a separate automatic virtual-watering monitor; production firmware dispatch
-remains unconnected.
+an initial Pi firmware integration described above; real-valve commissioning
+remains outside the current scope.
 
 ## Background and decisions
 

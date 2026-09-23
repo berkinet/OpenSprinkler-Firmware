@@ -2025,7 +2025,9 @@ OSApp.Programs.readStartTime = function( time ) {
 OSApp.Programs.pidToName = function( pid ) {
 	var pname = OSApp.Language._( "Program" ) + " " + pid;
 
-	if ( pid === 255 || pid === 99 ) {
+	if ( pid === 98 && OSApp.currentSession.controller.options.soilfw ) {
+		pname = "Soil / fixed-time scheduler";
+	} else if ( pid === 255 || pid === 99 ) {
 		pname = OSApp.Language._( "Manual program" );
 	} else if ( pid === 254 || pid === 98 ) {
 		pname = OSApp.Language._( "Run-once program" );

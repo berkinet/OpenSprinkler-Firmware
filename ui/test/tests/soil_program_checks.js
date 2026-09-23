@@ -53,6 +53,28 @@ describe("Soil-water program drafts", function () {
 		var request=sandbox.stub($,"ajax"); OSApp.SoilPrograms.previewPage();
 		assert.equal($("#soil-simulation").length,0); assert.isFalse(request.called);
 	});
+	it("firmware panel preserves local edits and publishes an explicit versioned controller copy", function () {
+		OSApp.currentSession.controller.options.soilfw = 1;
+		OSApp.currentSession.controller.options.hwv = 255;
+		var clock=sandbox.useFakeTimers(), calls=[], draft=OSApp.SoilPrograms.load();
+		draft.groups=["Local edits"]; OSApp.SoilPrograms.save(draft);
+		var snapshot={clock:1790160000,enabled:true,configRevision:7,draft:{version:4,groups:["Normal"],programs:[]},
+			site:{timezone:"Europe/Paris",provisional:false,initial:{}},records:[]};
+		sandbox.stub($,"ajax").callsFake(options => {
+			calls.push(options); var d=$.Deferred(); d.resolve(options.method === "POST" ? {result:1} : snapshot);
+			var promise=d.promise();promise.abort=sinon.spy();return promise;
+		});
+		OSApp.SoilPrograms.previewPage();
+		assert.equal($("#soil-simulation").length,0);
+		assert.include($("#soil-firmware").text(),"Automatic firmware scheduling enabled");
+		assert.deepEqual(OSApp.SoilPrograms.load().groups,["Local edits"]);
+		$("#soil-firmware button").filter(function(){return $(this).text()==="Save drafts to controller";}).trigger("click");
+		var body=JSON.parse(calls[1].data);
+		assert.equal(body.expectedRevision,7);assert.isFalse(body.site.provisional);
+		assert.deepEqual(body.draft.groups,["Local edits"]);assert.deepEqual(body.site.initial,{});
+		assert.include(calls[1].url,"/soilcfg?");
+		$("#preview").trigger("pagehide");clock.tick(5000);assert.equal(calls.length,2);
+	});
 	it("fixed and soil schedules are mutually exclusive and keep a common priority", function () {
 		OSApp.SoilPrograms.editPage(); header.rightBtn.on(); // soil program on valve zero
 		OSApp.SoilPrograms.editPage();

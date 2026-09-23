@@ -24,6 +24,7 @@
 #include <limits.h>
 #include "program.h"
 #include "main.h"
+#include "soil_scheduler.h"
 
 #if !defined(SECS_PER_DAY)
 #define SECS_PER_MIN  (60UL)
@@ -145,6 +146,7 @@ void ProgramData::toggle_pause(uint32_t delay) {
 }
 
 void ProgramData::set_pause() {
+	soil_pause("Controller queue paused; remaining soil cycles cancelled");
 	RuntimeQueueStruct *q = queue;
 	time_os_t curr_t = os.now_tz();
 

@@ -160,3 +160,19 @@ ties). Fixed skips are not automatically promoted into extra/moved misting.
 This ordering is an implementation policy for review, not a field-validated
 agronomic rule. DST missing times are skipped, repeated times occur once at the
 first occurrence. All prototype output remains conditional and non-dispatching.
+
+## 23 September 2026 — first firmware integration and real weather
+
+Owner authorized the next two steps: integrate autonomous execution into OS
+firmware and connect real inputs, while retaining fake-valve output. The initial
+Linux/Pi implementation reuses the Python reference planner as a one-shot
+firmware-invoked component. C++ firmware owns durable configuration, journal,
+station dispatch and completion. There is no independent scheduling daemon in
+this mode. This implementation choice retains a Python/source-tree dependency;
+it is not yet an ESP-portable allocation engine.
+
+Use dated OS weather-service ETo/rainfall, converted once to mm. Today/future
+ETo uses an explicitly labeled persistence estimate; completed-day weather is
+reconciled by replay. Site profile/initial state remain owner-supplied inputs,
+with a separate opt-in provisional test option. See FIRMWARE_SCHEDULER.md for
+current capacity, promotion and commissioning limits.

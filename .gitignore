@@ -1,5 +1,6 @@
 logs/**
 OpenSprinkler
+OpenSprinkler-soil.new
 wtopts.txt
 *.dat
 *.sh
@@ -8,6 +9,7 @@ build-1284/*
 .pio
 *.o
 !build.sh
+!tools/build_soil_demo.sh
 !startOpenSprinkler.sh
 !updater.sh
 *.bak

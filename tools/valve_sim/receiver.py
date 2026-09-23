@@ -21,9 +21,11 @@ def serve(log_path, zones=0):
         def do_GET(self):
             nonlocal sequence
             path = urlsplit(self.path).path
-            if path == "/status":
+            if path in ("/state", "/status"):
                 body = dict(service="opensprinkler-valve-simulator", session=session,
-                            states=state, events=list(events), sequence=sequence)
+                            states=state, sequence=sequence)
+                if path == "/status":
+                    body['events'] = list(events)
             else:
                 parts = path.strip("/").split("/")
                 if (len(parts) != 3 or parts[0] != "sim" or

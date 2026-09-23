@@ -31,6 +31,7 @@
 #include "mqtt.h"
 #include "main.h"
 #include "notifier.h"
+#include "soil_scheduler.h"
 
 #if defined(ESP8266)
 	#include <Arduino.h>
@@ -467,6 +468,7 @@ void do_setup() {
 	os.status.req_mqtt_restart = true;
 
 	initialize_otf();
+	soil_init();
 }
 
 #endif
@@ -854,6 +856,8 @@ void do_loop()
 			}
 		}//if_check_current_minute
 
+		soil_tick(); // Integrated Linux soil scheduler feeds the existing station queue.
+
 		// ====== Run program data ======
 		// Check if a program is running currently
 		// If so, do station run-time keeping
@@ -1150,6 +1154,7 @@ void turn_on_station(unsigned char sid, uint32_t duration) {
 	flow_gallons=0;
 
 	if (os.set_station_bit(sid, 1, duration)) {
+		soil_started(sid);
 		notif.add(NOTIFY_STATION_ON, sid, duration);
 	}
 }
@@ -1190,6 +1195,7 @@ void handle_shift_remaining_stations(RuntimeQueueStruct* q, unsigned char gid, t
 void turn_off_running_station_immediate(unsigned char sid, time_os_t curr_time, unsigned char shift) {
 	os.set_station_bit(sid, 0);
 	os.apply_all_station_bits();
+	soil_finished(sid, false);
 
 	unsigned char qid = pd.station_qid[sid];
 	RuntimeQueueStruct *q = pd.queue + qid;
@@ -1253,6 +1259,7 @@ void turn_off_station(unsigned char sid, time_os_t curr_time, unsigned char shif
 	#endif
 
 	os.set_station_bit(sid, 0);
+	soil_finished(sid, station_bit && q->dur && curr_time >= q->st + q->dur);
 
 	// RAH implementation of flow sensor
 	if (flow_gallons > 1) {
@@ -1532,6 +1539,7 @@ void schedule_all_stations(time_os_t curr_time, unsigned char qo) {
  * overcurrent situation to quickly turn off zones that are affected
  */
 void reset_all_stations_immediate(bool running_ones_only) {
+	soil_pause("Stop all stations");
 	if(running_ones_only) {
 		RuntimeQueueStruct *q = NULL;
 		time_os_t currtime = os.now_tz();
@@ -1565,6 +1573,7 @@ void reset_all_stations_immediate(bool running_ones_only) {
  * Stations will be logged
  */
 void reset_all_stations(bool running_ones_only) {
+	soil_pause("Stop all stations");
 	if(running_ones_only) {
 		RuntimeQueueStruct *q;
 		time_os_t currtime = os.now_tz();

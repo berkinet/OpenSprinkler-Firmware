@@ -4,7 +4,8 @@ var OSApp = OSApp || {};
 OSApp.SoilPrograms = OSApp.SoilPrograms || {};
 
 // Drafts deliberately use a separate, controller-scoped schema. They never
-// enter /cp or the legacy program array. Controller persistence comes later.
+// enter /cp or the legacy program array. The firmware panel applies a reviewed
+// copy to the controller; local editing never silently replaces a running plan.
 OSApp.SoilPrograms.storageKey = function() {
 	return "soilProgramDraft:v1:" + encodeURIComponent( OSApp.currentSession.token || OSApp.currentSession.ip || window.location.host );
 };
@@ -48,7 +49,7 @@ OSApp.SoilPrograms.page = function( id, title, back, save, rightButton ) {
 		page.find( "main" ).css( { "max-width": "760px", margin: "0 auto" } ).append(
 			$( "<div role='note'></div>" ).css( { padding: "12px 16px", background: "#fff2d6", color: "#493714", "border-left": "4px solid #c3841c", "border-radius": "5px", "margin-bottom": "20px" } ).append(
 				$( "<strong></strong>" ).text( "Soil water balance \xb7 editor preview" ),
-				$( "<p></p>" ).css( "margin-bottom", 0 ).text( "Save draft stores these forms in this browser. On the test Pi, apply saved drafts separately in Virtual watering simulation. Production automatic watering is not connected." )
+				$( "<p></p>" ).css( "margin-bottom", 0 ).text( OSApp.currentSession.controller.options.soilfw ? "Save draft keeps your edits in this browser. Open Firmware watering to save them to the controller and run the fake valves with real OS weather." : "Save draft stores these forms in this browser. On the test Pi, apply saved drafts separately in Virtual watering simulation. Production automatic watering is not connected." )
 			)
 		);
 	}
@@ -212,7 +213,7 @@ OSApp.SoilPrograms.displayPage = function() {
 	} ), body = page.find( "main" ), data;
 	function render() {
 		body.empty();
-		if ( OSApp.currentSession.controller.options.hwv === 255 ) { body.append( "<a href='#preview' class='ui-btn ui-mini'>Virtual watering simulation</a>" ); }
+		if ( OSApp.currentSession.controller.options.hwv === 255 ) { body.append( $( "<a href='#preview' class='ui-btn ui-mini'></a>" ).text( OSApp.currentSession.controller.options.soilfw ? "Firmware watering" : "Virtual watering simulation" ) ); }
 		try { data = OSApp.SoilPrograms.load(); } catch ( e ) { body.append( $( "<p></p>" ).text( e.message ) ); return; }
 		if ( !data.programs.length ) {
 			body.append( $( "<p class='center'></p>" ).text( OSApp.Language._( "You have no programs currently added. Tap the Add button on the top right corner to get started." ) ) );
@@ -496,12 +497,95 @@ OSApp.SoilPrograms.previewPage = function() {
 	var page = OSApp.SoilPrograms.page( "preview", "Soil-water plan", "#sprinklers" );
 	page.find( "main" ).append(
 		$( "<a href='#programs' class='ui-btn'>Edit programs</a>" ),
-		$( "<p></p>" ).text( "Standard programs are retained. Production execution of the new model is not connected. Export saved drafts for offline evaluation, or use the dedicated test Pi simulation below." ),
+		$( "<p></p>" ).text( OSApp.currentSession.controller.options.soilfw ? "The test Pi firmware owns this schedule and its station queue. The clock runs at real time; outputs still go only to fake valves." : "Standard programs are retained. Production execution of the new model is not connected. Export saved drafts for offline evaluation, or use the dedicated test Pi simulation below." ),
 		$( "<button type='button' id='export-soil-draft' class='ui-btn'>Export saved draft</button>" ).on( "click", function() {
 			try { OSApp.SoilPrograms.showDraftExport(); } catch ( e ) { OSApp.Errors.showError( e.message ); }
 		} )
 	);
-	OSApp.SoilPrograms.simulationPanel( page );
+	if ( OSApp.currentSession.controller.options.soilfw ) { OSApp.SoilPrograms.firmwarePanel( page ); }
+	else { OSApp.SoilPrograms.simulationPanel( page ); }
+};
+
+OSApp.SoilPrograms.firmwarePanel = function( page ) {
+	var c = OSApp.currentSession.controller, closed = false, timer, request, snapshot, loadedRevision, initialized = false,
+		box = $( "<section id='soil-firmware'></section>" ).appendTo( page.find( "main" ) ),
+		status = $( "<p role='status'>Reading firmware scheduler...</p>" ).appendTo( box ),
+		siteBox = $( "<div></div>" ).appendTo( box ), buttons = $( "<div></div>" ).appendTo( box ), details = $( "<div></div>" ).appendTo( box );
+	siteBox.append( "<h3>Site inputs</h3><p>Initial depletion is water missing from the root zone, in mm. Blank means unknown. Changing the site profile or these initial values requires a new soil baseline. Fixed-time programs do not need soil inputs.</p>" );
+	var timezone = OSApp.SoilPrograms.field( siteBox, "soil-site-timezone", "Site timezone", "Europe/Paris" ),
+		provisional = $( "<input type='checkbox' id='soil-provisional'>" ).appendTo( siteBox ),
+		initial = {};
+	siteBox.append( "<label for='soil-provisional'>Use provisional test soil values for blank fields and start unknown zones at their depletion threshold</label><p class='small'>Provisional values: capacity 100 mm/m, roots 0.3 m, depletion 50%, crop factor 1, effective rain 80%. These are assumptions, not field measurements.</p>" );
+	OSApp.SoilPrograms.eligibleZones().forEach( function( zone ) {
+		initial[ zone.sid ] = OSApp.SoilPrograms.field( siteBox, "soil-initial-" + zone.sid, zone.name + " initial depletion (mm)", "", "number" );
+	} );
+	var reset = $( "<input type='checkbox' id='soil-reset-balance'>" ).appendTo( siteBox );
+	siteBox.append( "<label for='soil-reset-balance'>Initialize a new soil baseline from these values when saving</label>" );
+	function url( route ) {
+		return OSApp.currentSession.prefix + OSApp.currentSession.ip + route + ( route.includes( "?" ) ? "&" : "?" ) + "pw=" + encodeURIComponent( OSApp.currentSession.pass || "" );
+	}
+	function render( data ) {
+		snapshot = data;
+		if ( !initialized ) {
+			loadedRevision = data.configRevision || 0;
+			var site = data.site || {};
+			timezone.val( site.timezone || "Europe/Paris" ); provisional.prop( "checked", !!site.provisional );
+			Object.keys( initial ).forEach( function( sid ) { initial[ sid ].val( ( site.initial || {} )[ sid ] === undefined ? "" : site.initial[ sid ] ); } );
+			initialized = true;
+		}
+		status.text( ( data.enabled ? "Automatic firmware scheduling enabled" : "Firmware scheduler paused" ) + " - " + new Date( data.clock * 1000 ).toLocaleString() + ( data.fatal || data.error ? " - " + ( data.fatal || data.error ) : "" ) );
+		details.empty();
+		$( "<p></p>" ).text( "Active fake valve: " + ( data.active ? ( c.stations.snames[ data.active.sid ] || "Valve " + ( data.active.sid + 1 ) ) : "None" ) ).appendTo( details );
+		if ( data.plan ) {
+			$( "<p></p>" ).text( data.plan.weather_source ).appendTo( details );
+			$( "<p></p>" ).text( data.plan.provisional ? "Soil inputs include provisional test assumptions." : "No provisional soil values are supplied automatically." ).appendTo( details );
+			if ( data.plan.soil_error ) { $( "<p></p>" ).text( "Soil programs blocked: " + data.plan.soil_error ).appendTo( details ); }
+			Object.keys( data.plan.unresolved || {} ).forEach( function( sid ) { $( "<p></p>" ).text( c.stations.snames[ sid ] + ": " + data.plan.unresolved[ sid ].join( "; " ) ).appendTo( details ); } );
+			var decisions = $( "<ul></ul>" ).appendTo( details ), report = data.plan.report || {};
+			( report.decisions || [] ).concat( report.fixed_decisions || [] ).forEach( function( d ) {
+				$( "<li></li>" ).text( d.program_name + ": " + d.status + " - " + d.reason + " (" + d.allocated_seconds + " seconds)" ).appendTo( decisions );
+			} );
+			Object.keys( data.plan.balances || {} ).forEach( function( sid ) {
+				if ( ( data.plan.unresolved || {} )[ sid ] ) { return; }
+				$( "<p></p>" ).text( c.stations.snames[ sid ] + " depletion: " + data.plan.balances[ sid ].toFixed( 2 ) + " mm (at last plan)" ).appendTo( details );
+			} );
+		}
+		if ( data.weather && data.weather.error ) { $( "<p></p>" ).text( data.weather.error ).appendTo( details ); }
+		details.append( "<p class='small'>Future ETo repeats the latest observed daily ETo; it is an estimate. Today's rain is reconciled when the completed-day observation arrives. Future service capacity is not yet verified. This version supports report-only shortage handling.</p><h3>Recent firmware events</h3>" );
+		var records = $( "<ul></ul>" ).appendTo( details );
+		( data.records || [] ).slice( -20 ).reverse().forEach( function( item ) {
+			$( "<li></li>" ).text( new Date( item.at * 1000 ).toLocaleString() + " - " + item.kind + ( item.sid >= 0 ? " - " + c.stations.snames[ item.sid ] : "" ) + " - " + item.detail ).appendTo( records );
+		} );
+	}
+	function poll() {
+		if ( closed ) { return; }
+		request = $.ajax( { url: url( "/soil" ), dataType: "json", timeout: 5000 } ).done( render ).fail( function() { status.text( "Firmware scheduler unavailable" ); } ).always( function() { if ( !closed ) { timer = setTimeout( poll, 2000 ); } } );
+	}
+	function change( route, body ) {
+		buttons.find( "button" ).prop( "disabled", true );
+		// text/plain avoids cross-origin preflight for the locally hosted UI.
+		return $.ajax( { url: url( route ), method: "POST", contentType: "text/plain", data: body ? JSON.stringify( body ) : "", dataType: "json", timeout: 10000 } ).done( function( result ) {
+			if ( result.result !== 1 ) { OSApp.Errors.showError( result.error || "Controller rejected change" ); return; }
+			if ( body ) { loadedRevision++; reset.prop( "checked", false ); }
+			status.text( "Controller change saved." );
+		} ).fail( function() { OSApp.Errors.showError( "Could not save controller change" ); } ).always( function() { buttons.find( "button" ).prop( "disabled", false ); } );
+	}
+	buttons.append( $( "<button class='ui-btn'>Load controller programs into editor</button>" ).on( "click", function() {
+		if ( !snapshot || !snapshot.draft ) { return OSApp.Errors.showError( "No controller configuration saved" ); }
+		OSApp.Storage.setItemSync( OSApp.SoilPrograms.storageKey() + ":before-controller-load", OSApp.SoilPrograms.exportDraft() );
+		OSApp.SoilPrograms.save( snapshot.draft ); loadedRevision = snapshot.configRevision;
+		OSApp.Errors.showError( "Controller programs loaded into the editor; previous drafts backed up." );
+	} ), $( "<button class='ui-btn ui-btn-b'>Save drafts to controller</button>" ).on( "click", function() {
+		try {
+			if ( !initialized ) { throw new Error( "Wait for controller configuration" ); }
+			var values = {};
+			Object.keys( initial ).forEach( function( sid ) { if ( initial[ sid ].val() !== "" ) { var n = Number( initial[ sid ].val() ); if ( !Number.isFinite( n ) || n < 0 ) { throw new Error( "Invalid initial depletion" ); } values[ sid ] = n; } } );
+			change( "/soilcfg", { draft: OSApp.SoilPrograms.load(), site: { timezone: timezone.val().trim(), provisional: provisional.prop( "checked" ), initial: values }, resetBalance: reset.prop( "checked" ), expectedRevision: loadedRevision } );
+		} catch ( e ) { OSApp.Errors.showError( e.message ); }
+	} ), $( "<button class='ui-btn'>Pause firmware scheduler</button>" ).on( "click", function() { change( "/soilctl?action=pause" ); } ),
+	$( "<button class='ui-btn'>Resume firmware scheduler</button>" ).on( "click", function() { change( "/soilctl?action=resume" ); } ) );
+	page.one( "pagehide", function() { closed = true; clearTimeout( timer ); if ( request ) { request.abort(); } } );
+	poll();
 };
 
 // Export only the separate draft; never include controller credentials/config.

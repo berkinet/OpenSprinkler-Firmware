@@ -29,6 +29,7 @@
 #include "weather.h"
 #include "mqtt.h"
 #include "main.h"
+#include "soil_scheduler.h"
 
 // External variables defined in main ion file
 extern OTF::OpenThingsFramework *otf;
@@ -964,6 +965,9 @@ void server_change_program(OTF_PARAMS_DEF) {
 void server_json_options_main() {
 	unsigned char oid;
 	bool emitted = false;
+#if defined(SOIL_SCHEDULER) && !defined(ARDUINO)
+	bfill.emit_p(PSTR("\"soilfw\":1")); emitted=true;
+#endif
 	for(oid=0;oid<NUM_IOPTS;oid++) {
 		#if !defined(ESP8266) // do not send the following parameters for non-Arduino platforms
 		if (oid==IOPT_USE_NTP			|| oid==IOPT_USE_DHCP		 ||
@@ -3181,12 +3185,30 @@ void server_fill_files(OTF_PARAMS_DEF) {
 
 typedef void (*URLHandler)(OTF_PARAMS_DEF);
 
+#if defined(SOIL_SCHEDULER) && !defined(ARDUINO)
+void server_soil_status(OTF_PARAMS_DEF) {
+	if(!process_password(OTF_PARAMS)) return;
+	auto body=soil_status(); print_header(OTF_PARAMS, CT_JSON, body.size()); res.writeBodyData(body.c_str(), body.size());
+}
+void server_soil_config(OTF_PARAMS_DEF) {
+	if(!process_password(OTF_PARAMS)) return;
+	auto body=soil_configure(req.getBody(),req.getBodyLength()); print_header(OTF_PARAMS, CT_JSON, body.size()); res.writeBodyData(body.c_str(), body.size());
+}
+void server_soil_control(OTF_PARAMS_DEF) {
+	if(!process_password(OTF_PARAMS)) return;
+	auto body=soil_control(req.getQueryParameter("action")); print_header(OTF_PARAMS, CT_JSON, body.size()); res.writeBodyData(body.c_str(), body.size());
+}
+#endif
+
 /* Server function urls
  * The order must exactly match the order of the
  * handler functions below
  */
 
 const char *uris[] PROGMEM = {
+#if defined(SOIL_SCHEDULER) && !defined(ARDUINO)
+	"soil", "soilcfg", "soilctl",
+#endif
 	"cv",
 	"jc",
 	"dp",
@@ -3227,6 +3249,9 @@ const char *uris[] PROGMEM = {
 
 // Server function handlers
 URLHandler urls[] = {
+#if defined(SOIL_SCHEDULER) && !defined(ARDUINO)
+	server_soil_status, server_soil_config, server_soil_control,
+#endif
 	server_change_values,   // cv
 	server_json_controller, // jc
 	server_delete_program,  // dp

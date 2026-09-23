@@ -82,7 +82,7 @@ def dry_run(draft, runtime):
     v = Validator()
     v.get('runtime', lambda: shape(runtime, ('schema_version', 'as_of', 'timezone',
           'calendar_through', 'eligible_station_sids', 'resource', 'states',
-          'next_service', 'weather', 'promoted_sids', 'location')))
+          'next_service', 'weather', 'promoted_sids', 'location', 'soil_input_issues')))
     v.finish()
     if type(runtime.get('schema_version')) is not int or runtime['schema_version'] != 1:
         raise InputErrors([dict(path='runtime.schema_version', message='unsupported runtime version')])
@@ -100,6 +100,11 @@ def dry_run(draft, runtime):
         margin = v.get('runtime.resource.closing_margin_seconds', lambda: integer(resource.get('closing_margin_seconds')))
     promoted = v.get('runtime.promoted_sids', lambda: sid_list(runtime.get('promoted_sids', [])))
     soil_sids = {z.station-1 for z in config.zones}
+    soil_issues = runtime.get('soil_input_issues', {})
+    if (not isinstance(soil_issues, dict) or not set(soil_issues) <= {str(s) for s in soil_sids}
+            or any(not isinstance(items, list) or any(not isinstance(x, str) or not x.strip() for x in items)
+                   for items in soil_issues.values())):
+        v.issues.append(dict(path='runtime.soil_input_issues', message='expected per-soil-valve lists of input issues'))
     active_sids = soil_sids | {p.sid for p in config.fixed}
     if eligible is not None and not active_sids <= set(eligible):
         v.issues.append(dict(path='runtime.eligible_station_sids', message='an enabled program references an unavailable, disabled, master or bundled valve'))
@@ -194,7 +199,7 @@ def dry_run(draft, runtime):
                 unresolved = state.get('unresolved')
                 if not isinstance(unresolved, list) or any(not isinstance(x, str) or not x.strip() for x in unresolved):
                     v.issues.append(dict(path=path+'.unresolved', message='explicit list of unresolved input/delivery IDs required'))
-                states[zone.id] = dict(depletion_mm=d, unresolved=unresolved)
+                states[zone.id] = dict(depletion_mm=d, unresolved=unresolved + soil_issues.get(sid, []) if isinstance(unresolved, list) else unresolved)
         if future_raw is not None:
             path = f'runtime.next_service.{sid}'
             future = v.get(path, lambda: timestamp(future_raw.get(sid)))
