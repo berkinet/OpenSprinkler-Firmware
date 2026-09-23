@@ -207,3 +207,38 @@ restrictions, DST edges, malformed/exclusive schema fields, legacy compatibility
 shared-field persistence, independent deletion and once-only starter import.
 The starter compile check reports only the five intentionally unconfigured
 shared-profile inputs. No production controller changes or valve commands.
+
+## 2026-09-23 — automatic virtual watering running on the test Pi
+
+Implemented a persistent automatic laboratory runner in tools/valve_sim and
+hosted it in the existing test UI service. It uses the reference planner, a 60x
+virtual clock, explicitly synthetic 4 mm/day ETo/no rain, and an effective test
+profile for blank fields. It applies saved browser drafts through a dedicated
+API and provides Apply/Pause/Resume controls, active fake-valve state, plans,
+soil balances and history. The nine existing starter drafts were applied via
+the actual UI; no kitchen programs were added. Saved browser profile fields
+were not overwritten. Production firmware dispatch remains unconnected.
+
+Live verification on OSPI-Dev observed automatic Salad completion (60 virtual
+seconds) and Artichokes completion (900 seconds), each with one assumed refill.
+Salad's fixed mist ran exactly 12:15-12:18 virtual local time, logged 180 seconds
+and refill=false. Cucumber stopped at 12:14:55 and resumed at 12:18:05 around the
+reserved misting slot. UI history and backend completion records agreed. The
+runner was left active with no reported error, continuing unattended against
+the non-forwarding fake receiver. The ordinary firmware dashboard stays idle
+because this harness does not submit commands to the firmware runtime queue.
+
+Checks: 13 runner/API tests and 88 reference-engine tests passed; 418 headless
+browser tests passed; ESLint and diff checks passed. Runner/API tests also
+passed on the Pi. The live browser exposed a cache-busting query-string mismatch
+on the status endpoint; it was corrected and covered by an API test before
+starting the run. Commits da225121 and c524c216 contain the implementation/fix.
+
+Persistent simulation state/history reside outside the served UI assets.
+Atomic event-intent/completion writes prevent restart replay and double-refill;
+clock/balance checkpoints every ten real seconds limit SD writes. A restart
+interrupts uncertain events without full credit; a graceful service stop saves
+a paused state. This is fake-receiver validation, not physical delivery proof.
+See AUTOMATIC_SIMULATION.md for assumptions, operating steps and remaining gaps.
+Only the test UI service and its served modules were changed; the test firmware,
+production controllers and real valve bridge were not modified or operated.

@@ -1,4 +1,40 @@
-# Resume point — 22 September 2026
+# Current resume point — 23 September 2026
+
+Automatic virtual watering is now implemented and installed. See
+[AUTOMATIC_SIMULATION.md](AUTOMATIC_SIMULATION.md) for operation, explicit test
+assumptions and failure behavior. The UI server on the dedicated test Pi hosts
+an unattended reference-planner worker; Programs → Virtual watering simulation
+applies browser drafts, pauses/resumes, and shows plans, virtual ON/OFF/completion,
+soil balances and history. The initial run uses the nine starter drafts, 60x
+virtual time, synthetic 4 mm/day ETo, no rain and an effective assumed soil
+profile for blank fields. Actual browser calibration remains blank/unchanged.
+
+Important: the worker addresses the non-forwarding fake receiver directly,
+not the firmware's station queue. The ordinary controller dashboard therefore
+still says System Idle. Real-time firmware integration and live OS ETo ingestion
+remain unfinished. This is an interim integrated-repository simulation harness,
+not a production architecture change to an external scheduler.
+
+State/history live at `/home/codex/opensprinkler-simulation`, outside web assets.
+The existing transient UI unit now has the simulation arguments documented in
+AUTOMATIC_SIMULATION.md. A graceful UI-service restart pauses simulation; resume
+from the app after restart. No production valves or configuration were changed.
+
+Latest implementation commits: `da225121` (automatic simulation), `c524c216`
+(browser cache-busting status requests). Tests: 13 simulator/API tests, 88
+reference-engine tests, 418 browser tests; simulator/API tests also passed on
+Pi Python. Live verification first observed Salad completion with one assumed
+refill and Artichokes active. Subsequent live results are in DEVELOPMENT_NOTES.md.
+
+Next: evaluate the visible automatic run, then replace synthetic weather with
+the OS ETo adapter and develop capacity-verified future service planning.
+Persistent production configuration and C++ dispatch remain separate milestones.
+Keep the test profile/weather assumptions explicit. Do not confuse restarting
+this development UI worker with commissioning real valves.
+
+---
+
+# Historical handoff — 22 September 2026
 
 The owner asked to save our place and continue tomorrow. Do not start an
 unattended experiment merely because this handoff exists.

@@ -18,8 +18,9 @@ Current continuation point: [saved session and next simulation milestone](NEXT_S
 The [offline reference model](../../tools/irrigation_replay/README.md) now accepts
 the actual browser draft format and explicit runtime snapshots. Multi-window
 service-horizon planning and firmware integration remain to be built. Both
-scheduling modes are selectable on the test Pi; Soil water balance opens the
-editor preview and keeps automatic watering paused.
+scheduling modes are selectable on the test Pi. Soil water balance now includes
+a separate automatic virtual-watering monitor; production firmware dispatch
+remains unconnected.
 
 ## Background and decisions
 

@@ -187,3 +187,18 @@ Preserve it when replacing UI packages. It adds eight soil programs and the
 separate Salad misting program once per browser. All start in Normal priority;
 field calibration and watering restrictions still need owner review. Automatic
 watering remains paused; this does not start parallel autonomous simulation.
+
+## 23 September — unattended virtual watering
+
+The existing UI server service now includes the automatic simulation worker.
+See [AUTOMATIC_SIMULATION.md](AUTOMATIC_SIMULATION.md) for its exact arguments,
+explicit synthetic assumptions and controls. Previous UI modules were backed
+up under `/home/codex/irrigation-build-records/before-automatic-simulation`.
+The service still runs as codex with NoNewPrivileges, now Restart=on-failure.
+The DEMO firmware service and loopback-only firmware guard were not changed.
+
+The server's optional simulation API serves read-only status and bounded JSON
+configuration/control writes restricted to the exact controller browser Origin.
+The browser's cache-busting query parameter is handled explicitly. Simulation
+state and history are outside the served directory. The private location file
+supports existing night-hour calculations without publishing coordinates.
