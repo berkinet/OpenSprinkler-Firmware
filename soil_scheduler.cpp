@@ -4,6 +4,7 @@
 #error "Initial soil firmware integration requires the isolated valve-simulator build"
 #endif
 #include "soil_runtime.hpp"
+#include "soil_http.hpp"
 #include <memory>
 #include <signal.h>
 #include <sys/wait.h>
@@ -32,15 +33,16 @@ bool eligible(int sid) {
     if(os.get_station_type(sid)!=STN_TYPE_HTTP || expected!=reinterpret_cast<const char*>(data.sped)) return false;
     return true;
 }
-void receiverReply(char* buffer) {
-    peel_http_header(buffer);
-    if(Soil::deserializeJson(receiver,buffer)) receiver.clear();
-}
 bool receiverState(int sid,bool on,bool checkSession) {
     receiver.clear();
     char request[]="GET /state HTTP/1.0\r\nHost: 127.0.0.1\r\n\r\n";
-    int result=os.send_http_request("127.0.0.1",18080,request,receiverReply,false,1000);
-    if(result!=HTTP_RQT_SUCCESS || receiver["service"]!="opensprinkler-valve-simulator" || !receiver["session"].is<const char*>()) return false;
+    EthernetClient client;
+    if(!client.connect("127.0.0.1",18080)) return false;
+    client.write(reinterpret_cast<uint8_t*>(request),strlen(request));
+    std::string body;
+    bool valid=Soil::receiverBody([&client](char* data,size_t count){return client.read(reinterpret_cast<uint8_t*>(data),count);},body);
+    client.stop();
+    if(!valid || Soil::deserializeJson(receiver,body) || receiver["service"]!="opensprinkler-valve-simulator" || !receiver["session"].is<const char*>()) return false;
     if(checkSession && runtime->state["active"]["receiverSession"]!=receiver["session"]) return false;
     if(!receiver["states"]["zone"+std::to_string(sid+1)].is<bool>()) return false;
     for(auto pair:receiver["states"].as<Soil::JsonObject>())

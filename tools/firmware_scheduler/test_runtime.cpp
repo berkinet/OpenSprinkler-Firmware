@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "../../soil_runtime.hpp"
+#include "../../soil_http.hpp"
 #include <cassert>
 #include <iostream>
 using namespace Soil;
@@ -15,6 +16,11 @@ JsonDocument plan(Runtime& r, const char* mode="runtime") {
     d["events"][0]["mode"]=mode;return d;
 }
 int main() {
+    std::string http="HTTP/1.0 200 OK\r\nContent-Length: 2\r\n\r\n{}",body;size_t pos=0;
+    assert(receiverBody([&](char* data,size_t){if(pos==http.size()) return 0;*data=http[pos++];return 1;},body));
+    assert(body=="{}");
+    pos=0;http.pop_back();
+    assert(!receiverBody([&](char* data,size_t){if(pos==http.size()) return 0;*data=http[pos++];return 1;},body));
     char dir[]="/tmp/soil-runtime-XXXXXX";assert(mkdtemp(dir));
     std::string path=std::string(dir)+"/state.json";
     Runtime r(path);r.load(100);auto c=config();r.configure(c.as<JsonVariantConst>(),100);r.resume(100);
