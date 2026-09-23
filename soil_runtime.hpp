@@ -73,7 +73,7 @@ public:
         if(!value["draft"]["programs"].is<JsonArrayConst>() || !value["draft"]["groups"].is<JsonArrayConst>() ||
            !value["site"]["timezone"].is<const char*>()) throw std::runtime_error("draft and named site timezone are required");
         if(value["draft"]["programs"].size()>200) throw std::runtime_error("Too many programs");
-        if(value["expectedRevision"].is<long>() && value["expectedRevision"]!=state["configRevision"])
+        if(value["expectedRevision"].is<long>() && value["expectedRevision"].as<long>()!=state["configRevision"].as<long>())
             throw std::runtime_error("Controller configuration changed; load it before saving");
         if(!state["active"].isNull() || eventRunning()) throw std::runtime_error("Pause the scheduler before changing configuration");
         // Initial state/profile changes need a new deliberate baseline, not a

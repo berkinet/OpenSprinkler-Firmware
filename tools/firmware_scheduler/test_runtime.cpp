@@ -5,7 +5,7 @@
 using namespace Soil;
 JsonDocument config() {
     JsonDocument d;
-    deserializeJson(d,R"({"draft":{"programs":[],"groups":["Normal"],"profile":{}},"site":{"timezone":"Europe/Paris"}})");
+    deserializeJson(d,R"({"draft":{"programs":[],"groups":["Normal"],"profile":{}},"site":{"timezone":"Europe/Paris"},"expectedRevision":0})");
     return d;
 }
 JsonDocument plan(Runtime& r, const char* mode="runtime") {
