@@ -270,3 +270,19 @@ adapter tests; C++ persistence/restart, cycle completion, event identity, HTTP
 fragmentation and imminent-start preservation checks. Build and smoke evidence
 are private on the test Pi; no production-controller requests or real valve
 routes were used.
+
+## 2026-09-23 — owner-approved provisional garden soil baseline
+
+The owner explicitly requested provisional soil profile and starting moisture
+values. Backed up the private checkpoint, paused, saved the existing nine
+programs unchanged with `site.provisional=true` and a new baseline, then resumed.
+Effective defaults: available-water capacity 100 mm/m, root depth 0.3 m,
+allowed depletion 50%, crop coefficient 1, effective rain 80%. Initial depletion
+is 15 mm per zone, the default profile's watering threshold. These remain
+explicit assumptions, not field measurements; blank calibration fields were
+not overwritten. Configuration revision is 4.
+
+Live verification observed all eight soil programs allocated full events,
+no soil-input/runtime errors, and Salad's simulated valve ON at 16:03:01 local
+time. Real OS Apple weather remains connected. The fixed midday mist is retained
+for 12:15 the following day. All outputs remain the isolated fake receiver.

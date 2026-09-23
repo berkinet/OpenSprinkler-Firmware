@@ -16,16 +16,20 @@ rain. Missing complete days block soil decisions.
 
 Nine garden programs are saved in the controller: eight soil programs for
 valves 1–8 and the separate Salad midday mist. No kitchen programs. Runtime
-durations remain the earlier provisional starter values. Automatic firmware
-scheduling is enabled, but the shared profile and initial soil depletion remain
-blank/unknown, so soil programs are visibly blocked. Fixed misting can run and
-was planned for 24 September at 12:15 local time after restoration.
+durations remain the earlier provisional starter values. The owner subsequently
+explicitly authorized provisional soil profile and starting moisture values.
+Applied on 23 September at 16:02:57 Europe/Paris, configuration revision 4:
+`site.provisional=true`, with a new soil baseline and automatic scheduling resumed.
+Blank profile fields use 100 mm/m available-water capacity, 0.3 m root depth,
+50% allowed depletion, crop coefficient 1 and 80% effective rain. Each zone
+starts at the resulting 15 mm depletion threshold. These are test assumptions;
+saved profile fields and initial-value overrides remain unchanged.
 
-A clarification remains unanswered: supply real soil/root/depletion inputs and
-initial moisture, or explicitly opt into provisional test soil values. Do not
-silently enable that option. The UI exposes it separately from measured inputs.
-The completed bounded smoke test used its own short synthetic soil program;
-those test values were removed when restoring the garden configuration.
+All eight soil programs received full-event allocations, and Salad's simulated
+valve was observed ON at 16:03:01. Fixed misting remains planned for 24 September
+at 12:15 local time. No missing-soil-input or runtime errors were reported.
+The prior private checkpoint is saved under
+`/home/codex/irrigation-build-records/before-provisional-soil-20260923T140257Z.json`.
 
 The live check observed native queue program ID 98, three 2-second soil pulses
 with gaps, one refill only after all six seconds completed, and a separate
