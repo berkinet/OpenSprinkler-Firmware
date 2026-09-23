@@ -48,7 +48,7 @@ OSApp.SoilPrograms.page = function( id, title, back, save, rightButton ) {
 		page.find( "main" ).css( { "max-width": "760px", margin: "0 auto" } ).append(
 			$( "<div role='note'></div>" ).css( { padding: "12px 16px", background: "#fff2d6", color: "#493714", "border-left": "4px solid #c3841c", "border-radius": "5px", "margin-bottom": "20px" } ).append(
 				$( "<strong></strong>" ).text( "Soil water balance \xb7 editor preview" ),
-				$( "<p></p>" ).css( "margin-bottom", 0 ).text( "Automatic watering is paused in this mode. Save draft stores these forms in this browser for this controller; the engine and controller storage are not connected yet." )
+				$( "<p></p>" ).css( "margin-bottom", 0 ).text( "Save draft stores these forms in this browser. On the test Pi, apply saved drafts separately in Virtual watering simulation. Production automatic watering is not connected." )
 			)
 		);
 	}
@@ -212,6 +212,7 @@ OSApp.SoilPrograms.displayPage = function() {
 	} ), body = page.find( "main" ), data;
 	function render() {
 		body.empty();
+		if ( OSApp.currentSession.controller.options.hwv === 255 ) { body.append( "<a href='#preview' class='ui-btn ui-mini'>Virtual watering simulation</a>" ); }
 		try { data = OSApp.SoilPrograms.load(); } catch ( e ) { body.append( $( "<p></p>" ).text( e.message ) ); return; }
 		if ( !data.programs.length ) {
 			body.append( $( "<p class='center'></p>" ).text( OSApp.Language._( "You have no programs currently added. Tap the Add button on the top right corner to get started." ) ) );
@@ -442,15 +443,65 @@ OSApp.SoilPrograms.settingsPage = function() {
 	body.append( $( "<button class='ui-btn ui-btn-b'>Save draft</button>" ).on( "click", save ) );
 };
 
+OSApp.SoilPrograms.simulationPanel = function( page ) {
+	var c = OSApp.currentSession.controller, jsp = ( c.settings || {} ).jsp;
+	if ( c.options.hwv !== 255 || !jsp ) { return; }
+	var url = jsp.replace( /\/js\/?$/, "" ) + "/simulation", box = $( "<section id='soil-simulation'></section>" ).appendTo( page.find( "main" ) ), timer, request, closed = false;
+	box.append( "<h2>Virtual watering simulation</h2><p>Fake valves only. This test uses an accelerated clock, synthetic weather and temporary values for blank soil-profile fields. Your saved field calibration is not changed.</p>" );
+	var status = $( "<p role='status'>Connecting to the test Pi...</p>" ).appendTo( box ),
+		buttons = $( "<div></div>" ).appendTo( box ), details = $( "<div></div>" ).appendTo( box );
+	function render( data ) {
+		status.text( ( data.running ? "Running" : "Paused" ) + " - virtual time " + data.local_time + " - " + data.speed + "x clock" + ( data.error ? " - " + data.error : "" ) );
+		details.empty();
+		$( "<p></p>" ).text( "Active virtual valve: " + ( data.active.map( function( a ) { return a.name; } ).join( ", " ) || "None" ) ).appendTo( details );
+		if ( data.profile ) { $( "<p class='small'></p>" ).text( "Effective test profile: " + JSON.stringify( data.profile ) + ". Assumed fields: " + ( data.assumed_profile_fields.join( ", " ) || "none" ) ).appendTo( details ); }
+		$( "<p class='small'></p>" ).text( data.assumptions.join( ". " ) ).appendTo( details );
+		if ( data.plan ) {
+			details.append( "<h3>Current plan</h3>" );
+			var plan = $( "<ul></ul>" ).appendTo( details );
+			data.plan.decisions.forEach( function( d ) { $( "<li></li>" ).text( d.name + ": " + d.status + " (" + d.reason + ")" + ( d.seconds ? " - " + d.seconds + " seconds ON" : "" ) ).appendTo( plan ); } );
+		}
+		if ( Object.keys( data.balances ).length ) {
+			details.append( "<h3>Simulated soil depletion</h3>" );
+			var balances = $( "<ul></ul>" ).appendTo( details );
+			Object.keys( data.balances ).forEach( function( sid ) { $( "<li></li>" ).text( ( c.stations.snames[ Number( sid ) ] || "Valve " + ( Number( sid ) + 1 ) ) + ": " + data.balances[ sid ].toFixed( 2 ) + " mm" ).appendTo( balances ); } );
+		}
+		details.append( "<h3>Recent simulation events</h3>" );
+		var history = $( "<ul></ul>" ).appendTo( details );
+		data.records.slice( -30 ).reverse().forEach( function( event ) {
+			var time = new Date( event.at * 1000 ).toLocaleString( undefined, { timeZone: data.timezone } );
+			$( "<li></li>" ).text( time + " - " + event.kind + ( event.name ? ": " + event.name : "" ) + ( event.detail ? " - " + event.detail : "" ) + ( event.kind === "completed" ? ( event.refill ? " - assumed refill recorded" : " - no assumed refill" ) : "" ) ).appendTo( history );
+		} );
+	}
+	function failed( xhr ) { status.text( "Simulation unavailable: " + ( xhr.responseJSON && xhr.responseJSON.error || "check the test Pi service" ) ); }
+	function poll() {
+		if ( closed ) { return; }
+		request = $.ajax( { url: url + "/status", dataType: "json", timeout: 5000 } ).done( render ).fail( failed ).always( function() {
+			if ( !closed ) { timer = setTimeout( poll, 2000 ); }
+		} );
+	}
+	function post( path, body ) {
+		buttons.find( "button" ).prop( "disabled", true );
+		$.ajax( { url: url + path, method: "POST", contentType: "application/json", data: JSON.stringify( body ), dataType: "json", timeout: 10000 } )
+			.done( render ).fail( failed ).always( function() { buttons.find( "button" ).prop( "disabled", false ); } );
+	}
+	buttons.append( $( "<button type='button' class='ui-btn'>Apply saved drafts to simulation</button>" ).on( "click", function() {
+		try { post( "/config", OSApp.SoilPrograms.load() ); } catch ( e ) { OSApp.Errors.showError( e.message ); }
+	} ), $( "<button type='button' class='ui-btn'>Pause simulation</button>" ).on( "click", function() { post( "/control", { action: "pause" } ); } ),
+	$( "<button type='button' class='ui-btn'>Resume simulation</button>" ).on( "click", function() { post( "/control", { action: "resume" } ); } ) );
+	page.one( "pagehide", function() { closed = true; clearTimeout( timer ); if ( request ) { request.abort(); } } );
+	poll();
+};
 OSApp.SoilPrograms.previewPage = function() {
-	OSApp.SoilPrograms.page( "preview", "Soil-water plan", "#sprinklers" ).find( "main" ).append(
-		$( "<p></p>" ).text( "No automatic plan is available yet. Standard programs are retained and will resume when you select Standard scheduling." ),
-		$( "<a href='#programs' class='ui-btn'>Edit soil-water programs</a>" ),
-		$( "<p></p>" ).text( "Export your saved draft to evaluate it with the offline engine. Unsaved form edits are not included." ),
+	var page = OSApp.SoilPrograms.page( "preview", "Soil-water plan", "#sprinklers" );
+	page.find( "main" ).append(
+		$( "<a href='#programs' class='ui-btn'>Edit programs</a>" ),
+		$( "<p></p>" ).text( "Standard programs are retained. Production execution of the new model is not connected. Export saved drafts for offline evaluation, or use the dedicated test Pi simulation below." ),
 		$( "<button type='button' id='export-soil-draft' class='ui-btn'>Export saved draft</button>" ).on( "click", function() {
 			try { OSApp.SoilPrograms.showDraftExport(); } catch ( e ) { OSApp.Errors.showError( e.message ); }
 		} )
 	);
+	OSApp.SoilPrograms.simulationPanel( page );
 };
 
 // Export only the separate draft; never include controller credentials/config.

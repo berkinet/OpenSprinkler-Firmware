@@ -6,6 +6,8 @@ Current continuation point: [saved session and next simulation milestone](NEXT_S
 
 ## Scheduling design
 
+- [Automatic virtual watering](AUTOMATIC_SIMULATION.md) — running the reference scheduler with persistent fake-valve execution
+
 - [Scheduling specification, draft 1](SCHEDULING_SPEC.md) — agreed policies, proposed defaults and integration boundaries
 - [Offline replay plan](REPLAY_PLAN.md) — acceptance scenarios and numerical examples
 - [Dedicated test Pi setup](TEST_PI_SETUP.md) — environment and reproducible DEMO build

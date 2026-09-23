@@ -26,6 +26,33 @@ describe("Soil-water program drafts", function () {
 		OSApp.currentSession.ip = oldIP;
 		sandbox.restore();
 	});
+	it("simulation controls send only saved drafts to the dedicated UI service and stop polling on exit", function () {
+		OSApp.currentSession.controller.options.hwv = 255;
+		OSApp.currentSession.controller.settings = {jsp:"http://test-pi:8081/js"};
+		var clock = sandbox.useFakeTimers(), calls = [];
+		var result = {running:true,local_time:"2026-09-23T12:15:00+02:00",speed:60,active:[{name:"Mist"}],
+			assumptions:["Synthetic ETo"],profile:null,balances:{"0":12.5},plan:null,records:[],timezone:"Europe/Paris"};
+		sandbox.stub($,"ajax").callsFake(options => {
+			calls.push(options); var d=$.Deferred(); d.resolve(result); var promise=d.promise(); promise.abort=sinon.spy(); return promise;
+		});
+		OSApp.SoilPrograms.previewPage();
+		assert.include($("#soil-simulation").text(), "Running - virtual time");
+		assert.include($("#soil-simulation").text(), "Active virtual valve: Mist");
+		assert.include($("#soil-simulation").text(), "12.50 mm");
+		$("#soil-simulation button").filter(function(){return $(this).text()==="Apply saved drafts to simulation";}).trigger("click");
+		assert.equal(calls[1].url,"http://test-pi:8081/simulation/config");
+		assert.equal(calls[1].contentType,"application/json");
+		assert.deepEqual(JSON.parse(calls[1].data),OSApp.SoilPrograms.load());
+		$("#soil-simulation button").filter(function(){return $(this).text()==="Pause simulation";}).trigger("click");
+		assert.deepEqual(JSON.parse(calls[2].data),{action:"pause"});
+		assert.isFalse(OSApp.Firmware.sendToOS.called);
+		$("#preview").trigger("pagehide"); clock.tick(5000);
+		assert.equal(calls.length,3);
+	});
+	it("does not expose the simulation API on non-DEMO controllers", function () {
+		var request=sandbox.stub($,"ajax"); OSApp.SoilPrograms.previewPage();
+		assert.equal($("#soil-simulation").length,0); assert.isFalse(request.called);
+	});
 	it("fixed and soil schedules are mutually exclusive and keep a common priority", function () {
 		OSApp.SoilPrograms.editPage(); header.rightBtn.on(); // soil program on valve zero
 		OSApp.SoilPrograms.editPage();

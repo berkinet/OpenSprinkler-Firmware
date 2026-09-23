@@ -92,3 +92,9 @@ The tool leaves soil mode selected and automatic scheduling paused; imported
 programs remain Standard-mode reference schedules. New-engine conversion still
 needs calibration and resolution of duplicate programs assigned to one valve.
 The original two-valve exercise intentionally refuses this larger configuration.
+
+## Automatic virtual watering
+
+The UI asset server can now host a persistent automatic simulation using this
+receiver and the reference planner. See [operation and test assumptions](../../docs/irrigation-engine/AUTOMATIC_SIMULATION.md).
+This harness addresses only numbered fake zones, never a real controller API.

@@ -23,7 +23,7 @@ OSApp.Dashboard.displayPage = function() {
 	var content = '<div data-role="page" id="sprinklers">' +
 			'<div class="ui-panel-wrapper">' +
 				'<div class="ui-content" role="main">' +
-					'<a id="soil-mode-notice" href="#programs" class="ui-btn ui-mini" style="display:none;white-space:normal">Soil water balance preview - automatic watering paused - Edit programs</a>' +
+					'<a id="soil-mode-notice" href="#programs" class="ui-btn ui-mini" style="display:none;white-space:normal">Soil water balance - Edit programs</a>' +
 					'<div class="ui-grid-a ui-body ui-corner-all info-card noweather">' +
 						'<div class="ui-block-a center">' +
 							'<div id="weather" class="pointer"></div>' +
