@@ -1,5 +1,12 @@
 # Current resume point — firmware integration, 23 September 2026
 
+24 September update: added all sixteen RainMachine zones as simulated OS
+stations 17–32, preserving slots 1–16. See [mapping and deployment record](RAINMACHINE_TEST_ZONES.md).
+The receiver now requires `--zones 32`. Existing nine programs, soil baseline
+and eight completed refill records were preserved; automatic scheduling resumed.
+New RainMachine program definitions remain to be configured. Pool Refill is a
+special case for fixed/manual handling, not ordinary soil-water accounting.
+
 The owner authorized firmware integration and real inputs while keeping fake
 valves. The new Pi-only `SOIL_SCHEDULER` implementation is described in
 [FIRMWARE_SCHEDULER.md](FIRMWARE_SCHEDULER.md). OS firmware now owns persistent

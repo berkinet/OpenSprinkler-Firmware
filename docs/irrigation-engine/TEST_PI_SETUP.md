@@ -9,8 +9,10 @@ programs are persisted in `/home/codex/opensprinkler-demo/soil-state.json`.
 The API is `/soil`, `/soilcfg` (JSON POST) and `/soilctl?action=pause|resume`.
 The old accelerated simulation's private state was retained as a historical
 test record, with its worker stopped. Post-restart configuration and isolation
-checks passed; all fake valves were off after validation. The soil profile and
-initial depletion remain unknown, while fixed Salad mist remains eligible.
+checks passed; all fake valves were off after validation. The owner approved
+provisional soil values on 23 September; automatic fake watering is enabled.
+On 24 September, RainMachine zones were added as stations 17–32; see the
+[zone mapping](RAINMACHINE_TEST_ZONES.md). The nine existing programs are retained.
 
 The current UI startup command after a full Pi reboot is:
 
@@ -21,7 +23,7 @@ sudo systemd-run --unit=opensprinkler-ui --uid=codex \
   /home/codex/opensprinkler-ui/scheduling-v1 --bind 0.0.0.0 --port 8081
 ```
 
-Recreate the firmware and receiver units below as before, adding `--zones 16`
+Recreate the firmware and receiver units below as before, adding `--zones 32`
 to the receiver command. Do not restart the historical UI simulation worker
 alongside firmware scheduling.
 
