@@ -53,5 +53,24 @@ int main() {
     assert(std::abs(restart.state["delivery"][1]["mm"].as<double>()-1.2)<1e-9);
     restart.pause(180,"test");restart.resume(100);p=plan(restart);restart.accept(p.as<JsonVariantConst>(),100);
     assert(restart.due(115).sid<0); // no catch-up
+    // Reservations guard all native queue intervals, even while paused/restarted.
+    restart.pause(300,"test");
+    auto cfg=config();cfg["expectedRevision"]=restart.state["configRevision"];
+    auto reservation=cfg["draft"]["programs"].add<JsonObject>();
+    reservation["scheduleMode"]="reservation";reservation["enabled"]=true;
+    restart.configure(cfg.as<JsonVariantConst>(),300);
+    assert(!restart.allowsInterval(310,320)); // no computed calendar yet
+    p=plan(restart);auto report=p["report"].to<JsonObject>();
+    report["reservation_coverage"]["start"]=300;report["reservation_coverage"]["end"]=1000;
+    auto block=report["reservations"].add<JsonObject>();block["blocked_start"]=400;block["blocked_end"]=500;
+    restart.accept(p.as<JsonVariantConst>(),300);
+    assert(restart.allowsInterval(300,400));assert(restart.allowsInterval(500,1000));
+    assert(!restart.allowsInterval(399,401));assert(!restart.allowsInterval(450,451));
+    assert(!restart.allowsInterval(490,510));assert(!restart.allowsInterval(300,1001));
+    assert(!restart.allowsInterval(299,300));
+    bool refused=false;try {restart.begin({0,0,0,390,410},390);}catch(const std::exception&) {refused=true;}
+    assert(refused && restart.state["active"].isNull());
+    Runtime reservedRestart(path);reservedRestart.load(420);
+    assert(!reservedRestart.allowsInterval(420,430));assert(reservedRestart.allowsInterval(500,510));
     unlink(path.c_str());rmdir(dir);std::cout<<"Durable firmware runtime tests passed\n";
 }

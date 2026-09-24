@@ -95,6 +95,21 @@ public:
         for(auto e:state["events"].as<JsonArrayConst>()) if(e["status"]=="running") return true;
         return false;
     }
+    bool allowsInterval(long start, long end) const {
+        bool reserved=false;
+        for(auto p:state["draft"]["programs"].as<JsonArrayConst>())
+            if(p["enabled"].as<bool>() && p["scheduleMode"]=="reservation") reserved=true;
+        if(!reserved) return true;
+        // After configuration changes or an expired plan, fail closed until the
+        // dated reservation calendar has been computed. Pause does not bypass it.
+        auto report=state["plan"]["report"];
+        if(end<=start || report["reservation_coverage"]["start"].isNull() ||
+           start<report["reservation_coverage"]["start"].as<long>() ||
+           end>report["reservation_coverage"]["end"].as<long>()) return false;
+        for(auto r:report["reservations"].as<JsonArrayConst>())
+            if(start<r["blocked_end"].as<long>() && end>r["blocked_start"].as<long>()) return false;
+        return true;
+    }
     bool canReplan(long now, long budget=25) const {
         if(eventRunning()) return false;
         for(auto e:state["events"].as<JsonArrayConst>()) {
@@ -154,6 +169,7 @@ public:
         return out;
     }
     void begin(const Pulse& p, long now) {
+        if(!allowsInterval(p.start,p.end)) throw std::runtime_error("External reservation blocks watering");
         auto e=state["events"][p.event];e["status"]="running";e["pulses"][p.pulse]["status"]="queued";
         state["consumed"][e["id"].as<std::string>()]=now;
         auto a=state["active"].to<JsonObject>();a["event"]=p.event;a["pulse"]=p.pulse;a["sid"]=p.sid;a["end"]=p.end;a["start"]=p.start;

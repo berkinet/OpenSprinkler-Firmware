@@ -176,3 +176,14 @@ ETo uses an explicitly labeled persistence estimate; completed-day weather is
 reconciled by replay. Site profile/initial state remain owner-supplied inputs,
 with a separate opt-in provisional test option. See FIRMWARE_SCHEDULER.md for
 current capacity, promotion and commissioning limits.
+
+## 24 September 2026 — external-control reservations
+
+The owner clarified that Indigo independently manages Pool Refill and can
+constrain its direct RainMachine commands to an agreed period. Selected a
+third, mutually exclusive program option: Reserve time for external control.
+It has days, start time(s) and duration, no valve or soil ledger, and mandatory
+precedence over irrigation priorities. The scheduler leaves transition gaps
+and fits irrigation outside the period; Indigo must stop by its end.
+See EXTERNAL_RESERVATIONS.md. An OS API for deferred external watering requests
+remains an alternative, not part of this implementation.

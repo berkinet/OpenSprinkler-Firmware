@@ -4,7 +4,7 @@ The sole output is the non-forwarding loopback fake-valve receiver. Simulated
 clock/soil/weather are explicit, and this is not production firmware dispatch.
 """
 import copy
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 import hashlib
 import json
 import os
@@ -14,10 +14,9 @@ import time
 from zoneinfo import ZoneInfo
 from urllib.request import Request, build_opener, ProxyHandler, HTTPRedirectHandler
 
-from tools.irrigation_replay.calendar import normalize, resolve_calendar
 from tools.irrigation_replay.draft import compile_draft
 from tools.irrigation_replay.engine import dry_run
-from tools.irrigation_replay.solar import night_intervals
+from tools.irrigation_replay.service import legal_intervals as service_intervals
 
 TEST_PROFILE = dict(capacity=100, roots=.3, depletion=50, crop=1, rain=80)
 
@@ -75,20 +74,7 @@ def effective_draft(draft):
 
 
 def legal_intervals(draft, config, now, tz, location):
-    first = datetime.fromtimestamp(now, tz).date()
-    last = first+timedelta(days=8)
-    rules = config.rules or ((tuple(range(7)), 0, 1440),)
-    base = normalize([i for days, a, b in rules for i in resolve_calendar(
-        tz.key, first.isoformat(), last.isoformat(), days, [(a, b)], config.excluded)])
-    if not config.rules and draft['version'] < 3:
-        base = []
-    result = {}
-    for zone in config.zones:
-        hours = config.hours[zone.id]
-        daily = (night_intervals(tz.key, first, last, location) if hours == 'night' else
-                 base if hours is None else resolve_calendar(tz.key, first.isoformat(), last.isoformat(), range(7), [hours]))
-        result[zone.id] = normalize([(max(a,c), min(b,d)) for a,b in base for c,d in daily if max(a,c)<min(b,d)])
-    return result, last
+    return service_intervals(draft, config, now, tz, location, transition=5)
 
 
 class Simulation:

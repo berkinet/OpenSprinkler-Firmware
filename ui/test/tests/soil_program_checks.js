@@ -76,6 +76,38 @@ describe("Soil-water program drafts", function () {
 		assert.include(calls[1].url,"/soilcfg?");
 		$("#preview").trigger("pagehide");clock.tick(5000);assert.equal(calls.length,2);
 	});
+	it("saves and reopens a valve-free mandatory reservation with shared day/time controls", function () {
+		OSApp.currentSession.controller.stations.stn_dis=[255];
+		OSApp.SoilPrograms.editPage();
+		$("#soil-schedule-mode").val("reservation").trigger("change");
+		$("#soil-name").val("Indigo pool refill");
+		$("#soil-fixed-day-0").prop("checked",true);$("#soil-fixed-times").val("23:50");
+		$("#soil-reservation-duration").val(1800);
+		assert.equal($("#soil-zone").closest(".ui-field-contain").css("display"),"none");
+		assert.equal($("#soil-group").closest(".ui-field-contain").css("display"),"none");
+		header.rightBtn.on();
+		var d=OSApp.SoilPrograms.load(), p=d.programs[0];
+		assert.equal(d.version,5);assert.equal(p.scheduleMode,"reservation");assert.equal(p.duration,30);
+		assert.notProperty(p,"sid");assert.notProperty(p,"group");assert.notProperty(p,"cycle");assert.notProperty(p,"profile");
+		OSApp.SoilPrograms.editPage(p.id);
+		assert.equal($("#soil-reservation-duration").val(),"1800");
+		assert.equal($("#soil-fixed-times").val(),"23:50");
+		assert.equal($("#soil-cycle").closest(".ui-field-contain").parent().css("display"),"none");
+		OSApp.PriorityGroups.save(d.groups,[{original:"Normal",name:"Garden"}]);
+		assert.notProperty(OSApp.SoilPrograms.load().programs[0],"group");
+		OSApp.SoilPrograms.displayPage();assert.include($("#programs").text(),"Mandatory reservation");
+		assert.notInclude($("#programs").text(),"Unavailable valve");
+	});
+	it("rejects incomplete reservations and preserves schema when adding a fixed program", function () {
+		OSApp.SoilPrograms.editPage();$("#soil-schedule-mode").val("reservation").trigger("change");
+		header.rightBtn.on();assert.lengthOf(OSApp.SoilPrograms.load().programs,0);
+		$("#soil-name").val("External");$("#soil-fixed-day-0").prop("checked",true);
+		$("#soil-fixed-times").val("12:00");$("#soil-reservation-duration").val(60);header.rightBtn.on();
+		OSApp.SoilPrograms.editPage();$("#soil-schedule-mode").val("fixed").trigger("change");
+		$("#soil-fixed-day-0").prop("checked",true);$("#soil-fixed-times").val("13:00");
+		$("#soil-runtime, #soil-cycle").val(60);$("#soil-soak").val(0);$("#soil-minimum").val(1);
+		header.rightBtn.on();assert.equal(OSApp.SoilPrograms.load().version,5);assert.lengthOf(OSApp.SoilPrograms.load().programs,2);
+	});
 	it("fixed and soil schedules are mutually exclusive and keep a common priority", function () {
 		OSApp.SoilPrograms.editPage(); header.rightBtn.on(); // soil program on valve zero
 		OSApp.SoilPrograms.editPage();

@@ -6,6 +6,8 @@ Current continuation point: [saved session and next simulation milestone](NEXT_S
 
 ## Scheduling design
 
+- [Reserved periods for external control](EXTERNAL_RESERVATIONS.md) — mandatory time reservations for Indigo-managed pool refill
+
 - [Pi firmware scheduler and real OS weather](FIRMWARE_SCHEDULER.md) — controller-owned execution, persistent configuration and current limits
 
 - [Automatic virtual watering](AUTOMATIC_SIMULATION.md) — running the reference scheduler with persistent fake-valve execution

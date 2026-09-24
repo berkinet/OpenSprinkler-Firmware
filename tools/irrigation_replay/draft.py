@@ -119,6 +119,15 @@ class FixedProgram:
 
 
 @dataclass(frozen=True)
+class Reservation:
+    id: str
+    name: str
+    days: tuple
+    times: tuple
+    duration: int
+
+
+@dataclass(frozen=True)
 class DraftConfig:
     profiles: dict
     zones: tuple
@@ -130,6 +139,7 @@ class DraftConfig:
     shortage: str
     hours: dict
     fixed: tuple = ()
+    reservations: tuple = ()
 
 
 def compile_draft(draft):
@@ -138,7 +148,7 @@ def compile_draft(draft):
     v.get('draft', lambda: shape(draft, ('version', 'programs', 'groups', 'windows',
                                         'excluded', 'shortage', 'profile', 'defaultHours')))
     v.finish()
-    if type(draft.get('version')) is not int or draft['version'] not in (1, 2, 3, 4):
+    if type(draft.get('version')) is not int or draft['version'] not in (1, 2, 3, 4, 5):
         raise InputErrors([dict(path='version', message='unsupported draft version')])
     groups = draft.get('groups')
     def group_names():
@@ -191,9 +201,40 @@ def compile_draft(draft):
         v.issues.append(dict(path='programs', message='expected a list'))
         programs = []
     profiles, zones, names, disabled, seen = {}, [], {}, [], set()
-    fixed, fixed_ids = [], set()
+    fixed, fixed_ids, reservations = [], set(), []
     for i, p in enumerate(programs):
         path = f'programs[{i}]'
+        if draft['version'] >= 5 and isinstance(p, dict) and p.get('scheduleMode') == 'reservation':
+            if v.get(path, lambda: shape(p, ('id', 'name', 'enabled', 'scheduleMode', 'days', 'times', 'duration'))) is None:
+                continue
+            pid = v.get(path+'.id', lambda: text(p.get('id')))
+            name = v.get(path+'.name', lambda: text(p.get('name')))
+            if pid is not None:
+                if not pid.startswith('reserved:') or pid in fixed_ids:
+                    v.issues.append(dict(path=path+'.id', message='unique reserved: program ID required'))
+                fixed_ids.add(pid)
+            if type(p.get('enabled')) is not bool:
+                v.issues.append(dict(path=path+'.enabled', message='expected a boolean'))
+                continue
+            if not p['enabled']:
+                disabled.append(dict(id=pid, name=name, reason='disabled'))
+                continue
+            days = v.get(path+'.days', lambda: weekday_list(p.get('days')))
+            def reservation_times():
+                raw = p.get('times')
+                if not isinstance(raw, list) or not raw:
+                    raise ValueError('select at least one start time')
+                values = tuple(sorted(minute(t) for t in raw))
+                if len(set(values)) != len(values):
+                    raise ValueError('duplicate start time')
+                return values
+            times = v.get(path+'.times', reservation_times)
+            duration = v.get(path+'.duration', lambda: seconds(p.get('duration')))
+            if duration is not None and duration > 86400:
+                v.issues.append(dict(path=path+'.duration', message='reservation must not exceed 24 hours'))
+            if all(x is not None for x in (pid, name, days, times, duration)):
+                reservations.append(Reservation(pid, name, days, times, duration))
+            continue
         if draft['version'] >= 4 and isinstance(p, dict) and p.get('scheduleMode') == 'fixed':
             if v.get(path, lambda: shape(p, ('id', 'sid', 'name', 'enabled', 'group',
                     'scheduleMode', 'permittedHours', 'amountMode', 'runtime',
@@ -282,7 +323,7 @@ def compile_draft(draft):
             if zone is not None:
                 zones.append(zone)
                 names[zone.id] = name
-    if any(isinstance(p, dict) and p.get('enabled') is True and p.get('scheduleMode') != 'fixed' for p in programs) and raw_profile is not None:
+    if any(isinstance(p, dict) and p.get('enabled') is True and p.get('scheduleMode') not in ('fixed', 'reservation') for p in programs) and raw_profile is not None:
         values = {}
         for key in ('capacity', 'roots', 'depletion', 'crop', 'rain'):
             values[key] = v.get('profile.'+key, lambda key=key: quantity(
@@ -296,4 +337,4 @@ def compile_draft(draft):
             v.issues.append(dict(path='programs', message='event depth exceeds soil reservoir capacity'))
     v.finish()
     return DraftConfig(profiles, tuple(zones), names, tuple(disabled), ordered,
-                       tuple(rules), excluded, policy, hours, tuple(fixed))
+                       tuple(rules), excluded, policy, hours, tuple(fixed), tuple(reservations))

@@ -18,10 +18,10 @@ OSApp.PriorityGroups.save = function( baseline, rows ) {
 	}
 	var renamed = new Map();
 	rows.forEach( function( row, index ) { if ( row.original !== null ) { renamed.set( row.original, names[ index ] ); } } );
-	if ( data.programs.some( function( program ) { return !renamed.has( program.group ); } ) ) {
+	if ( data.programs.some( function( program ) { return program.scheduleMode !== "reservation" && !renamed.has( program.group ); } ) ) {
 		throw new Error( "Reassign programs before removing a group they use." );
 	}
-	data.programs.forEach( function( program ) { program.group = renamed.get( program.group ); } );
+	data.programs.forEach( function( program ) { if ( program.scheduleMode !== "reservation" ) { program.group = renamed.get( program.group ); } } );
 	data.groups = names;
 	OSApp.SoilPrograms.save( data );
 	return data;

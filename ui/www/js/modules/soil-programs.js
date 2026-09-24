@@ -13,7 +13,7 @@ OSApp.SoilPrograms.load = function() {
 	var raw = OSApp.Storage.getItemSync( OSApp.SoilPrograms.storageKey() );
 	if ( raw ) {
 		var data = JSON.parse( raw );
-		if ( ![ 1, 2, 3, 4 ].includes( data.version ) || !Array.isArray( data.programs ) || !Array.isArray( data.groups ) ) {
+		if ( ![ 1, 2, 3, 4, 5 ].includes( data.version ) || !Array.isArray( data.programs ) || !Array.isArray( data.groups ) ) {
 			throw new Error( "Unsupported soil-water draft. Stored data has not been changed." );
 		}
 		return data;
@@ -165,7 +165,7 @@ OSApp.SoilPrograms.defaultHoursControl = function( parent ) {
 	parent.find( ":input" ).addClass( "noselect" );
 	parent.on( "change input", function( event ) { event.stopPropagation(); } );
 };
-OSApp.SoilPrograms.programKey = function( program ) { return program.scheduleMode === "fixed" ? program.id : program.sid; };
+OSApp.SoilPrograms.programKey = function( program ) { return [ "fixed", "reservation" ].includes( program.scheduleMode ) ? program.id : program.sid; };
 // Optional owner-provided starter set served by the dedicated DEMO UI host.
 // Apply once per browser/controller, preserving edited programs and site settings.
 OSApp.SoilPrograms.applyStarters = function( seed ) {
@@ -191,7 +191,7 @@ OSApp.SoilPrograms.applyStarters = function( seed ) {
 		data.programs = data.programs.filter( function( saved ) { return OSApp.SoilPrograms.programKey( saved ) !== OSApp.SoilPrograms.programKey( copy ); } );
 		data.programs.push( copy );
 	} );
-	data.programs.sort( function( a, b ) { return a.sid - b.sid; } ); data.version = 4;
+	data.programs.sort( function( a, b ) { return a.sid - b.sid; } ); data.version = Math.max( 4, data.version );
 	OSApp.Storage.setItemSync( marker + ":backup", before );
 	OSApp.SoilPrograms.save( data );
 	OSApp.Storage.setItemSync( marker, "applied" );
@@ -222,9 +222,9 @@ OSApp.SoilPrograms.displayPage = function() {
 				$( "<p class='center'></p>" ).text( OSApp.Language._( "Number of Programs" ) + ": " + data.programs.length ) );
 		}
 		data.programs.forEach( function( program ) {
-			var name = OSApp.currentSession.controller.stations.snames[ program.sid ] || "Unavailable valve";
+			var reservation = program.scheduleMode === "reservation", name = reservation ? "All irrigation blocked" : OSApp.currentSession.controller.stations.snames[ program.sid ] || "Unavailable valve";
 			var button = $( "<a href='#' class='ui-btn ui-corner-all'></a>" ).css( { "text-align": "left", "white-space": "normal" } ).text( program.name );
-			button.append( $( "<div class='small'></div>" ).text( name + " \xb7 " + program.group + " \xb7 " + ( program.scheduleMode === "fixed" ? "Fixed days, times and watering duration" : "Soil water balance" ) + " \xb7 " + ( program.enabled ? "Enabled draft" : "Disabled draft" ) ) );
+			button.append( $( "<div class='small'></div>" ).text( name + " \xb7 " + ( reservation ? "Mandatory reservation" : program.group ) + " \xb7 " + ( reservation ? "Reserve time for external control" : program.scheduleMode === "fixed" ? "Fixed days, times and watering duration" : "Soil water balance" ) + " \xb7 " + ( program.enabled ? "Enabled draft" : "Disabled draft" ) ) );
 			button.on( "click", function() { OSApp.UIDom.changePage( "#addprogram", { soilZone: OSApp.SoilPrograms.programKey( program ) } ); return false; } );
 			body.append( button );
 		} );
@@ -237,6 +237,21 @@ OSApp.SoilPrograms.editPage = function( sid ) {
 	function save() {
 		if ( !data || !fields.zone ) { return; }
 		try { data = OSApp.SoilPrograms.load(); } catch ( e ) { return OSApp.Errors.showError( e.message ); }
+		if ( fields.scheduleMode.val() === "reservation" ) {
+			var reservedDays = fixedBox.find( ":checkbox:checked" ).map( function() { return Number( this.value ); } ).get(),
+				reservedTimes = fields.times.val().split( /[\s,]+/ ).filter( Boolean ),
+				duration = OSApp.SoilPrograms.durationMinutes( fields.reservedDuration );
+			if ( !fields.name.val().trim() || !reservedDays.length || !reservedTimes.length || new Set( reservedTimes ).size !== reservedTimes.length || reservedTimes.some( function( t ) { return !/^(?:[01][0-9]|2[0-3]):[0-5][0-9]$/.test( t ); } ) || !( duration > 0 && duration <= 1440 ) ) {
+				return OSApp.Errors.showError( "Enter a name, weekdays, distinct HH:MM start times and a reservation duration up to 24 hours." );
+			}
+			var reservation = { id: program.scheduleMode === "reservation" ? program.id : "reserved:" + Date.now() + ":" + Math.random().toString( 36 ).slice( 2 ),
+				scheduleMode: "reservation", name: fields.name.val().trim(), enabled: fields.enabled.prop( "checked" ),
+				days: reservedDays, times: reservedTimes.sort(), duration: duration };
+			data.version = 5;
+			data.programs = data.programs.filter( function( p ) { return OSApp.SoilPrograms.programKey( p ) !== originalSid; } ).concat( [ reservation ] );
+			try { OSApp.SoilPrograms.save( data ); } catch ( e ) { return OSApp.Errors.showError( "Could not save draft: " + e.message ); }
+			OSApp.UIDom.changePage( "#programs" ); return;
+		}
 		if ( !data.groups.includes( fields.group.val() ) ) { return OSApp.Errors.showError( "Priority groups changed. Reopen this program to select a current group." ); }
 		var chosen = Number( fields.zone.val() );
 		if ( fields.zone.val() === null || !OSApp.SoilPrograms.eligibleZones().some( function( z ) { return z.sid === chosen; } ) ) {
@@ -275,12 +290,12 @@ OSApp.SoilPrograms.editPage = function( sid ) {
 			if ( !( result.runtime > 0 && result.cycle > 0 && result.minimum > 0 ) || result.soak === "" ) {
 				return OSApp.Errors.showError( "Set runtime and cycle settings for fixed-time watering." );
 			}
-			result = { id: program.id || "timed:" + Date.now() + ":" + Math.random().toString( 36 ).slice( 2 ),
+			result = { id: ( program.scheduleMode === "fixed" && program.id ) || "timed:" + Date.now() + ":" + Math.random().toString( 36 ).slice( 2 ),
 				scheduleMode: "fixed", sid: chosen, name: result.name, enabled: result.enabled, group: result.group,
 				permittedHours: result.permittedHours, amountMode: "runtime", runtime: result.runtime,
 				cycle: result.cycle, soak: result.soak, minimum: result.minimum, days: days, times: times.sort() };
 		}
-		data.version = fields.scheduleMode.val() === "fixed" ? 4 : Math.max( 3, data.version );
+		data.version = Math.max( fields.scheduleMode.val() === "fixed" ? 4 : 3, data.version );
 		data.programs = data.programs.filter( function( p ) { return OSApp.SoilPrograms.programKey( p ) !== originalSid; } ).concat( [ result ] );
 		try { OSApp.SoilPrograms.save( data ); } catch ( e ) { return OSApp.Errors.showError( "Could not save draft: " + e.message ); }
 		OSApp.UIDom.changePage( "#programs" );
@@ -290,9 +305,9 @@ OSApp.SoilPrograms.editPage = function( sid ) {
 	try { data = OSApp.SoilPrograms.load(); } catch ( e ) { body.append( $( "<p></p>" ).text( e.message ) ); return; }
 	program = data.programs.find( function( p ) { return OSApp.SoilPrograms.programKey( p ) === sid; } ) || { enabled: true, group: data.groups[ 0 ] };
 	var zones = OSApp.SoilPrograms.eligibleZones();
-	if ( !zones.length ) { body.append( "<p>No individual valves are enabled.</p>" ); return; }
-	fields.scheduleMode = OSApp.SoilPrograms.select( body, "soil-schedule-mode", "Schedule by", [ { value: "soil", label: "Soil water balance" }, { value: "fixed", label: "Fixed days, times and watering duration" } ], program.scheduleMode || "soil" );
-	body.append( "<h2>Valve & priority</h2>" );
+	if ( !zones.length ) { body.append( "<p>No individual valves are enabled. You can still add a reservation.</p>" ); }
+	fields.scheduleMode = OSApp.SoilPrograms.select( body, "soil-schedule-mode", "Schedule by", [ { value: "soil", label: "Soil water balance" }, { value: "fixed", label: "Fixed days, times and watering duration" }, { value: "reservation", label: "Reserve time for external control" } ], program.scheduleMode || "soil" );
+	var valveHeading = $( "<h2>Valve & priority</h2>" ).appendTo( body );
 	fields.zone = OSApp.SoilPrograms.select( body, "soil-zone", "Zone / valve", [], program.sid );
 	function zoneChoices() {
 		var selected = fields.zone.val();
@@ -305,15 +320,15 @@ OSApp.SoilPrograms.editPage = function( sid ) {
 	}
 	zoneChoices(); if ( program.sid !== undefined ) { fields.zone.val( program.sid ); }
 
-	body.append( OSApp.Programs.makeNameField( "soil-name", program.name || ( zones.find( function( z ) { return z.sid === Number( fields.zone.val() ); } ) || zones[ 0 ] ).name ),
+	body.append( OSApp.Programs.makeNameField( "soil-name", program.name || ( zones.find( function( z ) { return z.sid === Number( fields.zone.val() ); } ) || zones[ 0 ] || { name: "" } ).name ),
 		OSApp.Programs.makeEnabledField( "soil-enabled", program.enabled ) );
 	fields.name = body.find( "#soil-name" );
 	fields.enabled = body.find( "#soil-enabled" );
 	var profileField = OSApp.SoilPrograms.select( body, "soil-profile", "Site profile", [ { value: "garden", label: "Garden (shared)" } ], "garden" );
 	fields.group = OSApp.SoilPrograms.select( body, "soil-group", "Priority group", data.groups.map( function( g ) { return { value: g, label: g }; } ), program.group );
-	body.append( "<h2>Watering hours</h2>" );
-	readHours = OSApp.SoilPrograms.hoursControl( $( "<div></div>" ).appendTo( body ), "soil-hours", program.permittedHours, data.defaultHours || { mode: "all" } );
-	body.append( "<h2>Watering amount</h2>" );
+	var hoursHeading = $( "<h2>Watering hours</h2>" ).appendTo( body ), hoursBox = $( "<div></div>" ).appendTo( body );
+	readHours = OSApp.SoilPrograms.hoursControl( hoursBox, "soil-hours", program.permittedHours, data.defaultHours || { mode: "all" } );
+	var amountHeading = $( "<h2>Watering amount</h2>" ).appendTo( body );
 	var modes = [ { value: "runtime", label: "Minutes per watering (assumed refill)" }, { value: "depth", label: "Water depth per watering" } ];
 	if ( program.sid !== undefined && ( !program.amountMode || program.amountMode === "legacy" ) ) { modes.push( { value: "legacy", label: "Existing deficit-based draft (legacy)" } ); }
 	fields.amountMode = OSApp.SoilPrograms.select( body, "soil-amount-mode", "Specify watering amount", modes, program.amountMode || ( program.sid === undefined ? "runtime" : "legacy" ) );
@@ -343,21 +358,30 @@ OSApp.SoilPrograms.editPage = function( sid ) {
 		$( "<label></label>" ).attr( "for", id ).text( day ).appendTo( weekdays );
 	} );
 	fields.times = OSApp.SoilPrograms.field( fixedBox, "soil-fixed-times", "Start times (HH:MM)", ( program.times || [] ).join( ", " ), "text", "Controller local time. Separate multiple times with commas, for example 12:15, 15:00." );
-	fixedBox.append( "<p class='small'>Fixed runtime on the selected days, without ETo adjustment. Suitable for misting: no soil refill is assumed. Watering restrictions still apply. A blocked or conflicting event is skipped and reported, not delayed or caught up. Fixed-time slots are reserved before flexible soil watering; priority groups resolve competing fixed-time slots.</p>" );
+	var fixedHelp = $( "<p class='small'>Fixed runtime on the selected days, without ETo adjustment. Suitable for misting: no soil refill is assumed. Watering restrictions still apply. A blocked or conflicting event is skipped and reported, not delayed or caught up. Fixed-time slots are reserved before flexible soil watering; priority groups resolve competing fixed-time slots.</p>" ).appendTo( fixedBox );
+	var reservationBox = $( "<div id='soil-reservation-settings'></div>" ).appendTo( fixedBox );
+	fields.reservedDuration = OSApp.SoilPrograms.durationField( reservationBox, "soil-reservation-duration", "Reserved duration", program.duration );
+	reservationBox.append( "<p>No valve is operated. This mandatory period blocks all irrigation, regardless of priority or watering hours. The station transition delay is added before and after the period (at least one second on the test Pi). Indigo must close its valve before the period ends. Durations are elapsed time; overnight reservations continue into the next day. Repeated daylight-saving times are both covered; a missing start advances to the next valid minute.</p>" );
 	function amountVisibility() {
-		var fixed = fields.scheduleMode.val() === "fixed", mode = fields.amountMode.val();
-		fixedBox.toggle( fixed ); profileField.closest( ".ui-field-contain" ).toggle( !fixed );
-		fields.amountMode.closest( ".ui-field-contain" ).toggle( !fixed ); refillHelp.toggle( !fixed );
-		runtimeBox.toggle( fixed || mode === "runtime" ); depthBox.toggle( !fixed && mode === "depth" ); calibration.toggle( !fixed && mode !== "runtime" );
+		var fixed = fields.scheduleMode.val() === "fixed", reserved = fields.scheduleMode.val() === "reservation", mode = fields.amountMode.val();
+		fixedBox.toggle( fixed || reserved ); fixedHelp.toggle( fixed ); reservationBox.toggle( reserved );
+		valveHeading.add( fields.zone.closest( ".ui-field-contain" ) ).add( fields.group.closest( ".ui-field-contain" ) ).toggle( !reserved );
+		hoursHeading.add( hoursBox ).add( amountHeading ).toggle( !reserved );
+		if ( cycleBox ) { cycleBox.toggle( !reserved ); }
+		profileField.closest( ".ui-field-contain" ).toggle( !fixed && !reserved );
+		fields.amountMode.closest( ".ui-field-contain" ).toggle( !fixed && !reserved ); refillHelp.toggle( !fixed && !reserved );
+		runtimeBox.toggle( !reserved && ( fixed || mode === "runtime" ) ); depthBox.toggle( !reserved && !fixed && mode === "depth" ); calibration.toggle( !reserved && !fixed && mode !== "runtime" );
 	}
 	fields.scheduleMode.on( "change", function() { zoneChoices(); amountVisibility(); } );
 	fields.amountMode.on( "change", amountVisibility ); amountVisibility();
-	body.append( "<h2>Cycle & soak</h2><p class='small'>Split a watering event into short pulses. Other valves may run during a soak interval.</p>" );
-	fields.cycle = OSApp.SoilPrograms.durationField( body, "soil-cycle", "Maximum ON per cycle", program.cycle );
-	fields.soak = OSApp.SoilPrograms.durationField( body, "soil-soak", "Minimum soak between cycles", program.soak );
-	fields.minimum = OSApp.SoilPrograms.durationField( body, "soil-minimum", "Minimum useful pulse", program.minimum );
-	body.append( "<h3>Timing preview</h3><p class='small'>Preview uses the configured amount when available. The example is only used for incomplete or legacy drafts; it is never saved as the event duration.</p>" );
-	var total = OSApp.SoilPrograms.durationField( body, "soil-example", "Example total ON time", 5 ), summary = $( "<p aria-live='polite'></p>" ).appendTo( body );
+	var cycleBox = $( "<div></div>" ).appendTo( body );
+	cycleBox.append( "<h2>Cycle & soak</h2><p class='small'>Split a watering event into short pulses. Other valves may run during a soak interval.</p>" );
+	fields.cycle = OSApp.SoilPrograms.durationField( cycleBox, "soil-cycle", "Maximum ON per cycle", program.cycle );
+	fields.soak = OSApp.SoilPrograms.durationField( cycleBox, "soil-soak", "Minimum soak between cycles", program.soak );
+	fields.minimum = OSApp.SoilPrograms.durationField( cycleBox, "soil-minimum", "Minimum useful pulse", program.minimum );
+	cycleBox.append( "<h3>Timing preview</h3><p class='small'>Preview uses the configured amount when available. The example is only used for incomplete or legacy drafts; it is never saved as the event duration.</p>" );
+	var total = OSApp.SoilPrograms.durationField( cycleBox, "soil-example", "Example total ON time", 5 ), summary = $( "<p aria-live='polite'></p>" ).appendTo( cycleBox );
+	amountVisibility();
 	function update() {
 		var values = [ ( fields.scheduleMode.val() === "fixed" || fields.amountMode.val() === "runtime" ) && fields.runtime.val() !== "" ? fields.runtime : total, fields.cycle, fields.soak ].map( function( button ) {
 			var minutes = OSApp.SoilPrograms.durationMinutes( button );
@@ -547,6 +571,9 @@ OSApp.SoilPrograms.firmwarePanel = function( page ) {
 			var decisions = $( "<ul></ul>" ).appendTo( details ), report = data.plan.report || {};
 			( report.decisions || [] ).concat( report.fixed_decisions || [] ).forEach( function( d ) {
 				$( "<li></li>" ).text( d.program_name + ": " + d.status + " - " + d.reason + " (" + d.allocated_seconds + " seconds)" ).appendTo( decisions );
+			} );
+			( report.reservations || [] ).filter( function( r ) { return r.blocked_end > data.clock && r.blocked_start < data.clock + 86400; } ).forEach( function( r ) {
+				$( "<li></li>" ).text( r.program_name + ": reserved for external control — " + r.local_start + " to " + r.local_end + " (" + r.transition_seconds + "s transition before and after; no valve commands)" ).appendTo( decisions );
 			} );
 			Object.keys( data.plan.balances || {} ).forEach( function( sid ) {
 				if ( ( data.plan.unresolved || {} )[ sid ] || ( data.unresolved || {} )[ sid ] ) { return; }

@@ -9,7 +9,8 @@ from zoneinfo import ZoneInfo
 
 from .calendar import normalize, resolve_calendar
 from .solar import night_intervals
-from .fixed import fixed_plan
+from .fixed import fixed_plan, subtract
+from .reservations import reservation_plan
 from .draft import InputErrors, Validator, compile_draft, quantity, shape, text
 from .model import integer, number
 from .planner import ETPeriod, Window, plan
@@ -69,7 +70,7 @@ def clip_weather(periods, start, end):
 def audit(draft):
     config = compile_draft(draft)
     return dict(schema_version=1, mode='offline_no_controller_io',
-                status='configuration_valid', enabled_programs=len(config.zones)+len(config.fixed),
+                status='configuration_valid', enabled_programs=len(config.zones)+len(config.fixed)+len(config.reservations),
                 disabled_programs=list(config.disabled),
                 runtime_required=['as_of and named timezone', 'eligible station IDs',
                     'resource limits and timing margins', 'reconciled per-valve depletion and soak readiness',
@@ -169,13 +170,18 @@ def dry_run(draft, runtime):
     fixed_end = min(now+86400, int(datetime.combine(through+timedelta(days=1), datetime.min.time(), tz).timestamp()))
     fixed_allowed = {key: [(a, b-max(0, margin-calendar_margin)) for a, b in values]
                      for key, values in zone_intervals.items()}
-    fixed_output, reserved = fixed_plan(config, runtime, now, fixed_end, tz, fixed_allowed, transition, timestamp)
+    reservation_end = int(datetime.combine(through+timedelta(days=1), datetime.min.time(), tz).timestamp())
+    external, blocks = reservation_plan(config, now, reservation_end, tz, transition)
+    fixed_allowed = {key: subtract(values, blocks) for key, values in fixed_allowed.items()}
+    fixed_output, reserved = fixed_plan(config, runtime, now, fixed_end, tz, fixed_allowed, transition, timestamp, blocks)
     for zone in config.zones:
         # fixed_plan subtracts same-valve soak periods from these intervals.
         zone_intervals[zone.id] = fixed_allowed[zone.id]
     result['fixed_decisions'] = fixed_output
+    result['reservations'] = external
+    result['reservation_coverage'] = dict(start=now, end=reservation_end)
     if not config.zones:
-        return dict(result, status='conditional_plan' if config.fixed else 'no_enabled_programs', decisions=[])
+        return dict(result, status='conditional_plan' if config.fixed or config.reservations else 'no_enabled_programs', decisions=[])
     if current is None:
         following = next((a for a, b in planning_intervals if a > now and b-a > margin), None)
         return dict(result, status='outside_watering_window', next_opening=following, decisions=[])

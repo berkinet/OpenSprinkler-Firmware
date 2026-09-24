@@ -66,4 +66,19 @@ class WeatherTests(unittest.TestCase):
         self.assertTrue(all(e['mode']=='fixed' for e in result['events']))
         self.assertTrue(result['events'])
 
+class ReservationWorkerTests(unittest.TestCase):
+    setUp = WeatherTests.setUp
+    def test_reserved_time_survives_missing_soil_and_never_dispatches(self):
+        d=json.loads((Path(__file__).parents[1]/'irrigation_replay/fixtures/fixed-events-draft.json').read_text())
+        d.update(version=5,windows=[],shortage='report_only',profile={})
+        d['programs'].append(dict(id='reserved:pool',scheduleMode='reservation',name='External refill',
+            enabled=True,days=list(range(7)),times=['01:00'],duration=15))
+        r=dict(site=dict(timezone='Europe/Paris',initial={}),draft=d,offset=7200,anchor=self.now,
+               eligible=[0,1],transition=5,delivery=[],unresolved={})
+        result=calculate(r,self.weather,self.now)
+        self.assertTrue(result['soil_error'])
+        self.assertTrue(result['report']['reservations'])
+        self.assertEqual(result['events'],[])
+        self.assertTrue(all('sid' not in x for x in result['report']['reservations']))
+
 if __name__=='__main__':unittest.main()

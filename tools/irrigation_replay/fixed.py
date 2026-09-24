@@ -38,7 +38,7 @@ def subtract(intervals, blocks):
     return result
 
 
-def fixed_plan(config, runtime, now, end, tz, allowed, transition, timestamp):
+def fixed_plan(config, runtime, now, end, tz, allowed, transition, timestamp, external=()):
     """Reserve exact slots before flexible work; group order settles conflicts.
 
     Snapshot readiness/unresolved delivery applies to both policies on a valve.
@@ -87,6 +87,8 @@ def fixed_plan(config, runtime, now, end, tz, allowed, transition, timestamp):
             reason = 'valve_not_ready'
         elif not pulses:
             reason = 'minimum_pulse_not_met'
+        elif any(pulse.start < b and pulse.end > a for pulse in pulses for a, b in external):
+            reason = 'external_reservation'
         elif any(not any(a <= pulse.start and pulse.end <= b for a, b in allowed[p.id]) for pulse in pulses):
             reason = 'watering_restriction'
         else:

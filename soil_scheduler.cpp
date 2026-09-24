@@ -117,6 +117,20 @@ void soil_tick() {
     if(!runtime) return;
     const long now=utc();
     try {
+        // Enforce reservations on the entire native queue, including manual
+        // and run-once requests. Never delay/catch up a conflicting manual run.
+        if(os.iopts[IOPT_SCHEDULING_MODE]==1) {
+            bool changed=false;
+            for(int i=0;i<pd.nqueue;i++) {
+                auto& q=pd.queue[i];
+                long end=long(q.st)-offset()+q.dur;
+                if(q.dur && end>now && !runtime->allowsInterval(std::max(now,long(q.st)-offset()),end)) {
+                    runtime->log("blocked",now,"External reservation or unavailable reservation calendar",q.sid);
+                    q.st=now+offset();q.dur=0;q.deque_time=q.st;changed=true;
+                }
+            }
+            if(changed) runtime->save();
+        }
         if(lastTick && (now<lastTick || (now-lastTick>5 && runtime->eventRunning()))) soil_pause("Clock jump or stalled loop during watering");
         lastTick=now;
         if(!runtime->state["active"].isNull()) {

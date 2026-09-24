@@ -147,7 +147,7 @@ def calculate(request, weather, now):
     except ValueError as exc:
         soil_error = str(exc)
         for p in draft['programs']:
-            if p.get('scheduleMode') != 'fixed':
+            if p.get('scheduleMode') not in ('fixed', 'reservation'):
                 p['enabled'] = False
         config = compile_draft(draft)  # Still reject malformed fixed/structural input.
     if config.shortage != 'report_only':
@@ -156,7 +156,7 @@ def calculate(request, weather, now):
     if anchor > now:
         raise ValueError('Clock precedes the initial soil-state timestamp')
     balances, unresolved, future = {}, {}, {}
-    allowed, last = legal_intervals(draft, config, now, tz, request.get('location'))
+    allowed, last = legal_intervals(draft, config, now, tz, request.get('location'), max(1, request['transition']))
     for zone in config.zones:
         sid = str(zone.station-1)
         profile = config.profiles[zone.profile_id]
