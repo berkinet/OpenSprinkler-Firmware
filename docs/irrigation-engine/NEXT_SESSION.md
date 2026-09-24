@@ -1,5 +1,19 @@
 # Current resume point — firmware integration, 23 September 2026
 
+Latest installed code: `ac3902eb`, 24 September. Added **Reserve time for external
+control** under Programs → Add → Schedule by. See [behavior and scope](EXTERNAL_RESERVATIONS.md).
+The live bounded test blocked a manual request without any fake-valve command,
+then allowed a two-second fake run after the reservation plus transition gap.
+The temporary reservation was removed; the original nine programs and eight
+soil refill records are preserved, automatic scheduling enabled, configuration
+revision 6. No permanent pool-refill period has been chosen. The open browser
+form has an unsaved “Pool refill — Indigo” name with days/times/duration blank.
+Private evidence: `/home/codex/irrigation-build-records/reservation-smoke.json`.
+Backup: `/home/codex/irrigation-build-records/before-reservations-20260924T104547Z`.
+Checks: 421 browser tests, 120 Python tests, C++ guards; targeted tests also
+passed on the Pi. Served UI modules match source. Installed binary SHA-256:
+`dccc22f1b055c6603e82d6aa0220a851e809aac84fade9bfa583ff41a8339035`.
+
 24 September update: added all sixteen RainMachine zones as simulated OS
 stations 17–32, preserving slots 1–16. See [mapping and deployment record](RAINMACHINE_TEST_ZONES.md).
 The receiver now requires `--zones 32`. Existing nine programs, soil baseline

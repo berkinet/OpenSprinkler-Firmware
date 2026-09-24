@@ -286,3 +286,31 @@ Live verification observed all eight soil programs allocated full events,
 no soil-input/runtime errors, and Salad's simulated valve ON at 16:03:01 local
 time. Real OS Apple weather remains connected. The fixed midday mist is retained
 for 12:15 the following day. All outputs remain the isolated fake receiver.
+
+## 2026-09-24 — external-control reservation programs installed
+
+Implemented schema 5's mutually exclusive, valve-free reservation option,
+reusing fixed-program weekday/start-time and shared duration controls. Mandatory
+periods plus transition margins are subtracted before fixed/soil allocation and
+future service selection. Dated periods include overnight carryover and
+conservative DST handling. No reservation becomes an executable valve event or
+soil delivery. Priority group maintenance ignores these groupless programs.
+
+The firmware guards the whole native queue in soil scheduling mode, including
+manual and run-once work. Conflicting queue entries are cancelled and logged;
+missing or expired reservation coverage fails closed. Prior Standard mode is
+unchanged. See EXTERNAL_RESERVATIONS.md for manual API acknowledgement semantics.
+
+Installed `ac3902eb` on the Pi. Live test: a temporary two-minute reservation
+already in progress blocked a two-second manual request, with receiver sequence
+unchanged. After the reservation and five-second transition gap, another request
+produced exactly one ON/OFF pair. The original nine garden programs and initial
+baseline were restored without resetting their eight refill records; revision 6,
+automatic scheduling resumed. No permanent pool-refill hours were invented.
+The browser visibly showed only reservation fields when the option was selected.
+
+Validation: 421 browser, 97 reference-planner, ten firmware-worker and thirteen
+simulator/API tests passed, plus C++ durable-state/interval guard checks. Targeted
+Python and C++ checks passed on the Pi; both deployed UI modules match source.
+Private evidence and backup locations are in NEXT_SESSION.md. Production
+RainMachine, Indigo automation and real valve control remain unchanged.
